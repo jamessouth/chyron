@@ -27,15 +27,15 @@ let flags : cliflags Command.Param.t =
       ~default:0 ~doc:"int wait in ms before scrolling begins"
   and mode =
     flag_optional_with_default_doc "--mode" ~aliases:[ "-m" ] Mode.arg
-      Mode.sexp_of_t ~default:Char ~doc:"string scroll by character or by word"
+      Mode.sexp_of_t ~default:Wrap ~doc:"string reset TEXT or wrap around"
   and prefix =
     flag_optional_with_default_doc "--prefix" ~aliases:[ "-p" ] string
       (fun x -> String.sexp_of_t x)
       ~default:"" ~doc:"string prefix at left of display"
-  and reset =
-    flag_optional_with_default_doc "--reset" ~aliases:[ "-r" ] bool
-      (fun x -> Bool.sexp_of_t x)
-      ~default:false ~doc:"bool reset TEXT when end is reached"
+  and scroll =
+    flag_optional_with_default_doc "--scroll" ~aliases:[ "-sc" ] Scroll.arg
+      Scroll.sexp_of_t ~default:Char
+      ~doc:"string scroll by character or by word"
   and sleep =
     flag_optional_with_default_doc "--sleep" ~aliases:[ "-sl" ] Ints.oneplus
       (fun x -> Int.sexp_of_t x)
@@ -61,7 +61,7 @@ let flags : cliflags Command.Param.t =
     initial_pause;
     mode;
     prefix;
-    reset;
+    scroll;
     sleep;
     suffix;
     terminator;

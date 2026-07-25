@@ -1,12 +1,12 @@
 open Core
 
-module Terminator = struct
-  type t = Newline | Return | Space [@@deriving sexp]
+module Mode = struct
+  type t = Reset | Wrap [@@deriving sexp]
 
   let arg =
     Command.Arg_type.of_alist_exn ~accept_unique_prefixes:true
       ~case_sensitive:false ~list_values_in_help:false
-      [ ("newline", Newline); ("return", Return); ("space", Space) ]
+      [ ("reset", Reset); ("wrap", Wrap) ]
 end
 
 module Ints = struct
@@ -25,13 +25,22 @@ module Ints = struct
   let twoplus = Command.Arg_type.create (getint ~min:2)
 end
 
-module Mode = struct
+module Scroll = struct
   type t = Char | Word [@@deriving sexp]
 
   let arg =
     Command.Arg_type.of_alist_exn ~accept_unique_prefixes:true
       ~case_sensitive:false ~list_values_in_help:false
       [ ("char", Char); ("word", Word) ]
+end
+
+module Terminator = struct
+  type t = Newline | Return | Space [@@deriving sexp]
+
+  let arg =
+    Command.Arg_type.of_alist_exn ~accept_unique_prefixes:true
+      ~case_sensitive:false ~list_values_in_help:false
+      [ ("newline", Newline); ("return", Return); ("space", Space) ]
 end
 
 module Externs = struct
@@ -66,7 +75,7 @@ type cliflags = {
   initial_pause : int;
   mode : Mode.t;
   prefix : string;
-  reset : bool;
+  scroll : Scroll.t;
   sleep : int;
   suffix : string;
   terminator : Terminator.t;
@@ -149,7 +158,7 @@ let run text
       initial_pause;
       mode;
       prefix;
-      reset;
+      scroll;
       sleep;
       suffix;
       terminator;
@@ -178,7 +187,7 @@ let run text
   begin match direction with
   | Direction.Bounce -> begin
       let lenminuswidth = lentext - width in
-      match mode with
+      match scroll with
       | Char -> begin
           let ticks = succ ((Int.max 1 lenminuswidth * cycles) lsl 1) in
           let rec loop ticks pos dir =
@@ -259,7 +268,7 @@ let run text
       let halflen = lentext asr 1 in
       print_endline (Bytes.to_string finaltext);
       print_endline (string_of_int halflen);
-      match mode with
+      match scroll with
       | Char ->
           let ticks = succ (halflen * cycles) in
           let rec loop ticks pos =
@@ -302,7 +311,7 @@ let run text
       let lenminuswidth = lentext - width in
       let halflen = lentext asr 1 in
       let minpos = lenminuswidth - halflen in
-      match mode with
+      match scroll with
       | Char ->
           let ticks = succ (halflen * cycles) in
           let rec loop ticks pos =
