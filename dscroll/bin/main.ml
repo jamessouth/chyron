@@ -6,7 +6,7 @@ let flags : cliflags Command.Param.t =
   let%map_open.Command cycles =
     flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.nonneg
       (fun x -> Int.sexp_of_t x)
-      ~default:Ints.quasi_inf ~doc:"int number of scroll cycles"
+      ~default:65_536 ~doc:"int number of scroll cycles"
   and direction =
     flag_optional_with_default_doc "--direction" ~aliases:[ "-d" ] Direction.arg
       Direction.sexp_of_t ~default:Left

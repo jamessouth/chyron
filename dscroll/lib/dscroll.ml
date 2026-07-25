@@ -10,9 +10,6 @@ module Mode = struct
 end
 
 module Ints = struct
-  (* The only zeroless pandigital number where the first n digits are divisible by n, used as 'infinity' *)
-  let quasi_inf = 381_654_729
-
   let getint ~min num =
     if min |> Int.is_negative then invalid_arg "min must be >= 0"
     else
@@ -189,7 +186,7 @@ let run text
       let lenminuswidth = lentext - width in
       match scroll with
       | Char -> begin
-          let ticks = succ ((Int.max 1 lenminuswidth * cycles) lsl 1) in
+          let ticks = (Int.max 1 lenminuswidth * cycles) lsl 1 in
           let rec loop ticks pos dir =
             if ticks <= 0 then ()
             else begin
@@ -248,7 +245,7 @@ let run text
           List.iter indexes ~f:(fun x -> Printf.printf "%d " x);
           print_endline "";
 
-          let ticks = succ (List.length indexes * cycles) in
+          let ticks = List.length indexes * cycles in
           let rec loop ticks posns =
             if ticks <= 0 then ()
             else begin
@@ -270,7 +267,7 @@ let run text
       print_endline (string_of_int halflen);
       match scroll with
       | Char ->
-          let ticks = succ (halflen * cycles) in
+          let ticks = halflen * cycles in
           let rec loop ticks pos =
             if ticks <= 0 then ()
             else begin
@@ -284,7 +281,7 @@ let run text
           loop ticks 0
       | Word ->
           let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
-          let ticks = succ (wordcount * cycles) in
+          let ticks = wordcount * cycles in
           let indexes =
             List.take
               (List.rev (getwordboundariesleft halflen finaltext 0 [ 0 ]))
@@ -313,21 +310,53 @@ let run text
       let minpos = lenminuswidth - halflen in
       match scroll with
       | Char ->
-          let ticks = succ (halflen * cycles) in
-          let rec loop ticks pos =
-            if ticks <= 0 then ()
-            else begin
-              print pos;
-              let ipos = pred pos in
-              let npos = if ipos <= minpos then lenminuswidth else ipos in
-              Externs.caml_clock_nanosleep sleep;
-              (loop [@tailcall]) (pred ticks) npos
+          begin match mode with
+          | Wrap -> begin
+              let ticks = halflen * cycles in
+              let rec loop ticks pos =
+                if ticks <= 0 then ()
+                else begin
+                  print pos;
+                  let ipos = pred pos in
+                  let npos = if ipos <= minpos then lenminuswidth else ipos in
+                  Externs.caml_clock_nanosleep sleep;
+                  (loop [@tailcall]) (pred ticks) npos
+                end
+              in
+              loop ticks lenminuswidth
             end
-          in
-          loop ticks lenminuswidth
+          | Reset -> begin
+              let text_len = gettextlen (-1) text in
+              let minpos = halflen in
+
+              if text_len > width then
+                let ticks = succ (text_len - width) * cycles in
+                let rec loop ticks pos =
+                  if ticks <= 0 then ()
+                  else begin
+                    print pos;
+                    let ipos = pred pos in
+                    let npos = if ipos <= minpos then lenminuswidth else ipos in
+                    Externs.caml_clock_nanosleep sleep;
+                    (loop [@tailcall]) (pred ticks) npos
+                  end
+                in
+                loop ticks lenminuswidth
+              else
+                let rec loop ticks pos =
+                  if ticks <= 0 then ()
+                  else begin
+                    print pos;
+                    Externs.caml_clock_nanosleep sleep;
+                    (loop [@tailcall]) (pred ticks) pos
+                  end
+                in
+                loop cycles lenminuswidth
+            end
+          end
       | Word ->
           let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
-          let ticks = succ (wordcount * cycles) in
+          let ticks = wordcount * cycles in
           let indexes =
             List.take
               (List.rev
