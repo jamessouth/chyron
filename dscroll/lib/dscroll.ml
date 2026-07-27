@@ -53,6 +53,13 @@ module Externs = struct
   [@@noalloc]
 
   external unsafe_flush : Out_channel.t -> unit = "caml_ml_flush" [@@noalloc]
+
+  let print pos pfix plen finaltext width sfix slen lastchar =
+    unsafe_output_bytes stdout pfix 0 plen;
+    unsafe_output_bytes stdout finaltext pos width;
+    unsafe_output_bytes stdout sfix 0 slen;
+    unsafe_output_char stdout lastchar;
+    unsafe_flush stdout
 end
 
 module Direction = struct
@@ -146,6 +153,22 @@ let rec getwordboundariesleft th byt idx list =
     then getwordboundariesleft th byt sidx (sidx :: list)
     else getwordboundariesleft th byt sidx list
 
+let loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
+    lastchar =
+  let rec loop ticks posns =
+    if ticks <= 0 then ()
+    else begin
+      let pos = List.hd_exn posns in
+      Externs.print pos pfix plen finaltext width sfix slen lastchar;
+      let posns =
+        if List.length posns = 1 then indexes else List.tl_exn posns
+      in
+      Externs.caml_clock_nanosleep sleep;
+      (loop [@tailcall]) (pred ticks) posns
+    end
+  in
+  loop ticks indexes
+
 let run text
     {
       cycles;
@@ -172,15 +195,10 @@ let run text
     | Return -> '\r'
     | Space -> ' '
   in
-  let print pos =
-    Externs.unsafe_output_bytes stdout (Bytes.of_string prefix) 0
-      (String.length prefix);
-    Externs.unsafe_output_bytes stdout finaltext pos width;
-    Externs.unsafe_output_bytes stdout (Bytes.of_string suffix) 0
-      (String.length suffix);
-    Externs.unsafe_output_char stdout lastchar;
-    Externs.unsafe_flush stdout
-  in
+  let pfix = Bytes.of_string prefix in
+  let plen = Bytes.length pfix in
+  let sfix = Bytes.of_string suffix in
+  let slen = Bytes.length sfix in
   begin match direction with
   | Direction.Bounce -> begin
       let lenminuswidth = lentext - width in
@@ -190,7 +208,7 @@ let run text
           let rec loop ticks pos dir =
             if ticks <= 0 then ()
             else begin
-              print pos;
+              Externs.print pos pfix plen finaltext width sfix slen lastchar;
               let ipos = pos + dir in
               let npos =
                 if ipos <= 0 then 0
@@ -246,19 +264,8 @@ let run text
           print_endline "";
 
           let ticks = List.length indexes * cycles in
-          let rec loop ticks posns =
-            if ticks <= 0 then ()
-            else begin
-              let pos = List.hd_exn posns in
-              print pos;
-              let posns =
-                if List.length posns = 1 then indexes else List.tl_exn posns
-              in
-              Externs.caml_clock_nanosleep sleep;
-              (loop [@tailcall]) (pred ticks) posns
-            end
-          in
-          loop ticks indexes
+          loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
+            lastchar
         end
     end
   | Left -> begin
@@ -268,17 +275,9 @@ let run text
       match scroll with
       | Char ->
           let ticks = halflen * cycles in
-          let rec loop ticks pos =
-            if ticks <= 0 then ()
-            else begin
-              print pos;
-              let ipos = succ pos in
-              let npos = if ipos >= halflen then 0 else ipos in
-              Externs.caml_clock_nanosleep sleep;
-              (loop [@tailcall]) (pred ticks) npos
-            end
-          in
-          loop ticks 0
+          let indexes = List.range 0 halflen in
+          loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
+            lastchar
       | Word ->
           let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
           let ticks = wordcount * cycles in
@@ -290,19 +289,8 @@ let run text
           List.iter indexes ~f:(fun x -> Printf.printf "%d " x);
           print_endline "";
 
-          let rec loop ticks posns =
-            if ticks <= 0 then ()
-            else begin
-              let pos = List.hd_exn posns in
-              print pos;
-              let posns =
-                if List.length posns = 1 then indexes else List.tl_exn posns
-              in
-              Externs.caml_clock_nanosleep sleep;
-              (loop [@tailcall]) (pred ticks) posns
-            end
-          in
-          loop ticks indexes
+          loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
+            lastchar
     end
   | Right -> begin
       let lenminuswidth = lentext - width in
@@ -313,45 +301,21 @@ let run text
           begin match mode with
           | Wrap -> begin
               let ticks = halflen * cycles in
-              let rec loop ticks pos =
-                if ticks <= 0 then ()
-                else begin
-                  print pos;
-                  let ipos = pred pos in
-                  let npos = if ipos <= minpos then lenminuswidth else ipos in
-                  Externs.caml_clock_nanosleep sleep;
-                  (loop [@tailcall]) (pred ticks) npos
-                end
-              in
-              loop ticks lenminuswidth
+              let indexes = List.range ~stride:(-1) lenminuswidth minpos in
+              loopandprint ticks indexes sleep pfix plen sfix slen finaltext
+                width lastchar
             end
           | Reset -> begin
               let text_len = gettextlen (-1) text in
               let minpos = halflen in
-
               if text_len > width then
                 let ticks = succ (text_len - width) * cycles in
-                let rec loop ticks pos =
-                  if ticks <= 0 then ()
-                  else begin
-                    print pos;
-                    let ipos = pred pos in
-                    let npos = if ipos <= minpos then lenminuswidth else ipos in
-                    Externs.caml_clock_nanosleep sleep;
-                    (loop [@tailcall]) (pred ticks) npos
-                  end
-                in
-                loop ticks lenminuswidth
+                let indexes = List.range ~stride:(-1) lenminuswidth minpos in
+                loopandprint ticks indexes sleep pfix plen sfix slen finaltext
+                  width lastchar
               else
-                let rec loop ticks pos =
-                  if ticks <= 0 then ()
-                  else begin
-                    print pos;
-                    Externs.caml_clock_nanosleep sleep;
-                    (loop [@tailcall]) (pred ticks) pos
-                  end
-                in
-                loop cycles lenminuswidth
+                loopandprint cycles [ lenminuswidth ] sleep pfix plen sfix slen
+                  finaltext width lastchar
             end
           end
       | Word ->
@@ -367,19 +331,8 @@ let run text
 
           List.iter indexes ~f:(fun x -> Printf.printf "%d " x);
           print_endline "";
-          let rec loop ticks posns =
-            if ticks <= 0 then ()
-            else begin
-              let pos = List.hd_exn posns in
-              print pos;
-              let posns =
-                if List.length posns = 1 then indexes else List.tl_exn posns
-              in
-              Externs.caml_clock_nanosleep sleep;
-              (loop [@tailcall]) (pred ticks) posns
-            end
-          in
-          loop ticks indexes
+          loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
+            lastchar
     end
   end;
   match terminator with
