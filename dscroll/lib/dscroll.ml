@@ -135,23 +135,13 @@ let getfinaltext text endcap_char endcap_len width direction mode =
   end;
   buf
 
-let rec getwordboundariesright th byt idx list =
+let rec getwordboundaries th byt idx list f adj =
   if idx = th then list
   else if
     Char.( = ) (Bytes.unsafe_get byt idx) ' '
     && Char.( <> ) (Bytes.unsafe_get byt (succ idx)) ' '
-  then getwordboundariesright th byt (pred idx) ((idx - th) :: list)
-  else getwordboundariesright th byt (pred idx) list
-
-let rec getwordboundariesleft th byt idx list =
-  if idx = th then list
-  else
-    let sidx = succ idx in
-    if
-      Char.( = ) (Bytes.unsafe_get byt idx) ' '
-      && Char.( <> ) (Bytes.unsafe_get byt sidx) ' '
-    then getwordboundariesleft th byt sidx (sidx :: list)
-    else getwordboundariesleft th byt sidx list
+  then getwordboundaries th byt (f idx) ((idx - adj) :: list) f adj
+  else getwordboundaries th byt (f idx) list f adj
 
 let loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
     lastchar =
@@ -216,7 +206,6 @@ let run text
         end
       | Word -> begin
           let text_len = gettextlen (-1) text in
-
           let indexes =
             Array.of_list
               (if text_len > width then (
@@ -230,19 +219,18 @@ let run text
                  let rightinds =
                    List.take
                      (List.rev
-                        (getwordboundariesright width finaltext (pred lentext)
-                           [ lenminuswidth ]))
+                        (getwordboundaries width finaltext (pred lentext)
+                           [ lenminuswidth ] pred width))
                      wordcount
                  in
                  let leftinds =
                    List.take
                      (List.rev
-                        (getwordboundariesleft
+                        (getwordboundaries
                            (pred (Bytes.length finaltext))
-                           finaltext 1 [ 0 ]))
+                           finaltext 1 [ 0 ] succ (-1)))
                      wordcount
                  in
-
                  List.remove_consecutive_duplicates
                    (List.filter (List.append leftinds rightinds) ~f:(fun x ->
                         x <= lenminuswidth))
@@ -252,7 +240,6 @@ let run text
           in
           Array.iter indexes ~f:(fun x -> Printf.printf "%d " x);
           print_endline "";
-
           let ticks = Array.length indexes * cycles in
           loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
             lastchar
@@ -264,22 +251,37 @@ let run text
       print_endline (string_of_int halflen);
       match scroll with
       | Char ->
-          let ticks = halflen * cycles in
-          let indexes = Array.of_list (List.range 0 halflen) in
-          loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
-            lastchar
+          begin match mode with
+          | Wrap -> begin
+              let ticks = halflen * cycles in
+              let indexes = Array.of_list (List.range 0 halflen) in
+              loopandprint ticks indexes sleep pfix plen sfix slen finaltext
+                width lastchar
+            end
+          | Reset -> begin
+              let text_len = gettextlen (-1) text in
+              if text_len > width then
+                let ticks = succ (text_len - width) * cycles in
+                let indexes = Array.of_list (List.range 0 (halflen - width)) in
+                loopandprint ticks indexes sleep pfix plen sfix slen finaltext
+                  width lastchar
+              else
+                loopandprint cycles [| 0 |] sleep pfix plen sfix slen finaltext
+                  width lastchar
+            end
+          end
       | Word ->
           let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
           let ticks = wordcount * cycles in
           let indexes =
             Array.of_list
               (List.take
-                 (List.rev (getwordboundariesleft halflen finaltext 0 [ 0 ]))
+                 (List.rev
+                    (getwordboundaries halflen finaltext 0 [ 0 ] succ (-1)))
                  wordcount)
           in
           Array.iter indexes ~f:(fun x -> Printf.printf "%d " x);
           print_endline "";
-
           loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
             lastchar
     end
@@ -320,11 +322,10 @@ let run text
             Array.of_list
               (List.take
                  (List.rev
-                    (getwordboundariesright width finaltext (pred lentext)
-                       [ lenminuswidth ]))
+                    (getwordboundaries width finaltext (pred lentext)
+                       [ lenminuswidth ] pred width))
                  wordcount)
           in
-
           Array.iter indexes ~f:(fun x -> Printf.printf "%d " x);
           print_endline "";
           loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
@@ -334,5 +335,5 @@ let run text
   match terminator with
   | Newline -> ()
   | _ ->
-      Out_channel.output_byte stdout 10;
-      Out_channel.flush stdout
+      Externs.unsafe_output_char stdout '\n';
+      Externs.unsafe_flush stdout
