@@ -155,19 +155,18 @@ let rec getwordboundariesleft th byt idx list =
 
 let loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
     lastchar =
-  let rec loop ticks posns =
+  let maxidx = pred (Array.length indexes) in
+  let rec loop ticks idx =
     if ticks <= 0 then ()
     else begin
-      let pos = List.hd_exn posns in
+      let pos = Array.unsafe_get indexes idx in
       Externs.print pos pfix plen finaltext width sfix slen lastchar;
-      let posns =
-        if List.length posns = 1 then indexes else List.tl_exn posns
-      in
+      let nidx = if idx = maxidx then 0 else succ idx in
       Externs.caml_clock_nanosleep sleep;
-      (loop [@tailcall]) (pred ticks) posns
+      (loop [@tailcall]) (pred ticks) nidx
     end
   in
-  loop ticks indexes
+  loop ticks 0
 
 let run text
     {
@@ -205,65 +204,56 @@ let run text
       match scroll with
       | Char -> begin
           let ticks = (Int.max 1 lenminuswidth * cycles) lsl 1 in
-          let rec loop ticks pos dir =
-            if ticks <= 0 then ()
-            else begin
-              Externs.print pos pfix plen finaltext width sfix slen lastchar;
-              let ipos = pos + dir in
-              let npos =
-                if ipos <= 0 then 0
-                else if ipos >= lenminuswidth then lenminuswidth
-                else ipos
-              in
-              let ndir =
-                if ipos <= 0 then 1
-                else if ipos >= lenminuswidth then -1
-                else dir
-              in
-              Externs.caml_clock_nanosleep sleep;
-              (loop [@tailcall]) (pred ticks) npos ndir
-            end
+          let indexes =
+            Array.of_list
+              (let rh =
+                 List.range ~stride:(-1) ~start:`exclusive lenminuswidth 0
+               in
+               0 :: List.rev_append rh (lenminuswidth :: rh))
           in
-          loop ticks 0 1
+          loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
+            lastchar
         end
       | Word -> begin
           let text_len = gettextlen (-1) text in
 
           let indexes =
-            if text_len > width then (
-              let wordcount =
-                Int.max 1 (pred (List.fold text ~init:0 ~f:(fun i _ -> succ i)))
-              in
-              print_endline (Bytes.to_string finaltext);
-              print_endline (string_of_int lenminuswidth);
-              print_endline (string_of_int wordcount);
-              let rightinds =
-                List.take
-                  (List.rev
-                     (getwordboundariesright width finaltext (pred lentext)
-                        [ lenminuswidth ]))
-                  wordcount
-              in
-              let leftinds =
-                List.take
-                  (List.rev
-                     (getwordboundariesleft
-                        (pred (Bytes.length finaltext))
-                        finaltext 1 [ 0 ]))
-                  wordcount
-              in
+            Array.of_list
+              (if text_len > width then (
+                 let wordcount =
+                   Int.max 1
+                     (pred (List.fold text ~init:0 ~f:(fun i _ -> succ i)))
+                 in
+                 print_endline (Bytes.to_string finaltext);
+                 print_endline (string_of_int lenminuswidth);
+                 print_endline (string_of_int wordcount);
+                 let rightinds =
+                   List.take
+                     (List.rev
+                        (getwordboundariesright width finaltext (pred lentext)
+                           [ lenminuswidth ]))
+                     wordcount
+                 in
+                 let leftinds =
+                   List.take
+                     (List.rev
+                        (getwordboundariesleft
+                           (pred (Bytes.length finaltext))
+                           finaltext 1 [ 0 ]))
+                     wordcount
+                 in
 
-              List.remove_consecutive_duplicates
-                (List.filter (List.append leftinds rightinds) ~f:(fun x ->
-                     x <= lenminuswidth))
-                ~equal:(fun a b -> a = b))
-            else if text_len = width then [ 0 ]
-            else [ 0; lenminuswidth ]
+                 List.remove_consecutive_duplicates
+                   (List.filter (List.append leftinds rightinds) ~f:(fun x ->
+                        x <= lenminuswidth))
+                   ~equal:(fun a b -> a = b))
+               else if text_len = width then [ 0 ]
+               else [ 0; lenminuswidth ])
           in
-          List.iter indexes ~f:(fun x -> Printf.printf "%d " x);
+          Array.iter indexes ~f:(fun x -> Printf.printf "%d " x);
           print_endline "";
 
-          let ticks = List.length indexes * cycles in
+          let ticks = Array.length indexes * cycles in
           loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
             lastchar
         end
@@ -275,18 +265,19 @@ let run text
       match scroll with
       | Char ->
           let ticks = halflen * cycles in
-          let indexes = List.range 0 halflen in
+          let indexes = Array.of_list (List.range 0 halflen) in
           loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
             lastchar
       | Word ->
           let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
           let ticks = wordcount * cycles in
           let indexes =
-            List.take
-              (List.rev (getwordboundariesleft halflen finaltext 0 [ 0 ]))
-              wordcount
+            Array.of_list
+              (List.take
+                 (List.rev (getwordboundariesleft halflen finaltext 0 [ 0 ]))
+                 wordcount)
           in
-          List.iter indexes ~f:(fun x -> Printf.printf "%d " x);
+          Array.iter indexes ~f:(fun x -> Printf.printf "%d " x);
           print_endline "";
 
           loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
@@ -301,7 +292,9 @@ let run text
           begin match mode with
           | Wrap -> begin
               let ticks = halflen * cycles in
-              let indexes = List.range ~stride:(-1) lenminuswidth minpos in
+              let indexes =
+                Array.of_list (List.range ~stride:(-1) lenminuswidth minpos)
+              in
               loopandprint ticks indexes sleep pfix plen sfix slen finaltext
                 width lastchar
             end
@@ -310,26 +303,29 @@ let run text
               let minpos = halflen in
               if text_len > width then
                 let ticks = succ (text_len - width) * cycles in
-                let indexes = List.range ~stride:(-1) lenminuswidth minpos in
+                let indexes =
+                  Array.of_list (List.range ~stride:(-1) lenminuswidth minpos)
+                in
                 loopandprint ticks indexes sleep pfix plen sfix slen finaltext
                   width lastchar
               else
-                loopandprint cycles [ lenminuswidth ] sleep pfix plen sfix slen
-                  finaltext width lastchar
+                loopandprint cycles [| lenminuswidth |] sleep pfix plen sfix
+                  slen finaltext width lastchar
             end
           end
       | Word ->
           let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
           let ticks = wordcount * cycles in
           let indexes =
-            List.take
-              (List.rev
-                 (getwordboundariesright width finaltext (pred lentext)
-                    [ lenminuswidth ]))
-              wordcount
+            Array.of_list
+              (List.take
+                 (List.rev
+                    (getwordboundariesright width finaltext (pred lentext)
+                       [ lenminuswidth ]))
+                 wordcount)
           in
 
-          List.iter indexes ~f:(fun x -> Printf.printf "%d " x);
+          Array.iter indexes ~f:(fun x -> Printf.printf "%d " x);
           print_endline "";
           loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
             lastchar

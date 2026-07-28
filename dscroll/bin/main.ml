@@ -302,6 +302,21 @@ heap_chunks: 0 *)
 
       34.717703485 +- 0.000865136 seconds time elapsed  ( +-  0.00% ) *)
 
+(* Performance counter stats for './_build/default/bin/main.exe mary had a little lamb -c 10 -w 17 -sl 150' (10 runs):
+
+                 0      context-switches:u               #      0.0 cs/sec  cs_per_second     
+                 0      cpu-migrations:u                 #      0.0 migrations/sec  migrations_per_second
+             1,662      page-faults:u                    #  45716.6 faults/sec  page_faults_per_second  ( +-  3.77% )
+             36.35 msec task-clock:u                     #      0.0 CPUs  CPUs_utilized         ( +-  1.10% )
+           272,213      L1-dcache-load-misses:u          #      6.0 %  l1d_miss_rate            ( +-  9.41% )  (31.85%)
+           104,514      LLC-loads:u                      #     61.6 %  llc_miss_rate            ( +-  6.21% )  (7.70%)
+            60,590      branch-misses:u                  #      2.6 %  branch_miss_rate         ( +-  7.95% )  (20.49%)
+         2,515,208      branches:u                       #     69.2 M/sec  branch_frequency     ( +- 17.60% )  (35.89%)
+        16,500,438      cpu-cycles:u                     #      0.5 GHz  cycles_frequency       ( +-  4.97% )  (48.06%)
+        16,902,304      instructions:u                   #      0.9 instructions  insn_per_cycle  ( +- 12.51% )  (60.45%)
+
+      34.565717873 +- 0.000675059 seconds time elapsed  ( +-  0.00% ) *)
+
 (* Performance counter stats for './_build/default/bin/main.exe mary had a little lamb -c 10 -w 17 -e 150' (10 runs):
 
                  0      context-switches:u               #      0.0 cs/sec  cs_per_second
