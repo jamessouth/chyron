@@ -271,19 +271,50 @@ let run text
             end
           end
       | Word ->
-          let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
-          let ticks = wordcount * cycles in
-          let indexes =
-            Array.of_list
-              (List.take
-                 (List.rev
-                    (getwordboundaries halflen finaltext 0 [ 0 ] succ (-1)))
-                 wordcount)
-          in
-          Array.iter indexes ~f:(fun x -> Printf.printf "%d " x);
-          print_endline "";
-          loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
-            lastchar
+          begin match mode with
+          | Wrap -> begin
+              let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
+              let ticks = wordcount * cycles in
+              let indexes =
+                Array.of_list
+                  (List.take
+                     (List.rev
+                        (getwordboundaries halflen finaltext 0 [ 0 ] succ (-1)))
+                     wordcount)
+              in
+              Array.iter indexes ~f:(fun x -> Printf.printf "%d " x);
+              print_endline "";
+              loopandprint ticks indexes sleep pfix plen sfix slen finaltext
+                width lastchar
+            end
+          | Reset -> begin
+              let text_len = gettextlen (-1) text in
+              if text_len > width then (
+                let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
+                let prelims =
+                  List.take
+                    (List.rev
+                       (getwordboundaries halflen finaltext 0 [ 0 ] succ (-1)))
+                    wordcount
+                in
+                let his =
+                  List.fold prelims ~init:(-1) ~f:(fun a x ->
+                      if x >= halflen - width then succ a else a)
+                in
+                let indexes =
+                  Array.of_list (List.take prelims (List.length prelims - his))
+                in
+                let ticks = Array.length indexes * cycles in
+
+                Array.iter indexes ~f:(fun x -> Printf.printf "%d " x);
+                print_endline "";
+                loopandprint ticks indexes sleep pfix plen sfix slen finaltext
+                  width lastchar)
+              else
+                loopandprint cycles [| 0 |] sleep pfix plen sfix slen finaltext
+                  width lastchar
+            end
+          end
     end
   | Right -> begin
       let lenminuswidth = lentext - width in
@@ -316,20 +347,52 @@ let run text
             end
           end
       | Word ->
-          let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
-          let ticks = wordcount * cycles in
-          let indexes =
-            Array.of_list
-              (List.take
-                 (List.rev
-                    (getwordboundaries width finaltext (pred lentext)
-                       [ lenminuswidth ] pred width))
-                 wordcount)
-          in
-          Array.iter indexes ~f:(fun x -> Printf.printf "%d " x);
-          print_endline "";
-          loopandprint ticks indexes sleep pfix plen sfix slen finaltext width
-            lastchar
+          begin match mode with
+          | Wrap -> begin
+              let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
+              let ticks = wordcount * cycles in
+              let indexes =
+                Array.of_list
+                  (List.take
+                     (List.rev
+                        (getwordboundaries width finaltext (pred lentext)
+                           [ lenminuswidth ] pred width))
+                     wordcount)
+              in
+              Array.iter indexes ~f:(fun x -> Printf.printf "%d " x);
+              print_endline "";
+              loopandprint ticks indexes sleep pfix plen sfix slen finaltext
+                width lastchar
+            end
+          | Reset -> begin
+              let text_len = gettextlen (-1) text in
+              if text_len > width then (
+                let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
+                let prelims =
+                  List.take
+                    (List.rev
+                       (getwordboundaries width finaltext (pred lentext)
+                          [ lenminuswidth ] pred width))
+                    wordcount
+                in
+                let lows =
+                  List.fold prelims ~init:(-1) ~f:(fun a x ->
+                      if x <= succ halflen then succ a else a)
+                in
+                let indexes =
+                  Array.of_list (List.take prelims (List.length prelims - lows))
+                in
+                let ticks = Array.length indexes * cycles in
+
+                Array.iter indexes ~f:(fun x -> Printf.printf "%d " x);
+                print_endline "";
+                loopandprint ticks indexes sleep pfix plen sfix slen finaltext
+                  width lastchar)
+              else
+                loopandprint cycles [| lenminuswidth |] sleep pfix plen sfix
+                  slen finaltext width lastchar
+            end
+          end
     end
   end;
   match terminator with
