@@ -20,11 +20,11 @@ let flags : cliflags Command.Param.t =
       Ints.oneplus
       (fun x -> Int.sexp_of_t x)
       ~default:1 ~doc:"int minimum length of endcap"
-  and initial_pause =
+  (* and initial_pause =
     flag_optional_with_default_doc "--initial-pause" ~aliases:[ "-i" ]
       Ints.nonneg
       (fun x -> Int.sexp_of_t x)
-      ~default:0 ~doc:"int wait in ms before scrolling begins"
+      ~default:0 ~doc:"int wait in ms before scrolling begins" *)
   and mode =
     flag_optional_with_default_doc "--mode" ~aliases:[ "-m" ] Mode.arg
       Mode.sexp_of_t ~default:Wrap ~doc:"string reset TEXT or wrap around"
@@ -58,7 +58,7 @@ let flags : cliflags Command.Param.t =
     direction;
     endcap_char;
     endcap_len;
-    initial_pause;
+    (* initial_pause; *)
     mode;
     prefix;
     scroll;
