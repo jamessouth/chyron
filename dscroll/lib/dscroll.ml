@@ -10,16 +10,16 @@ module Mode = struct
 end
 
 module Ints = struct
-  let getint ~min num =
+  let parseint ~min num =
     if min |> Int.is_negative then invalid_arg "min must be >= 0"
     else
       match num |> int_of_string_opt with
       | Some n -> Int.max min n
       | None -> invalid_arg "not an int"
 
-  let nonneg = Command.Arg_type.create (getint ~min:0)
-  let oneplus = Command.Arg_type.create (getint ~min:1)
-  let twoplus = Command.Arg_type.create (getint ~min:2)
+  let nonneg = Command.Arg_type.create (parseint ~min:0)
+  let oneplus = Command.Arg_type.create (parseint ~min:1)
+  let twoplus = Command.Arg_type.create (parseint ~min:2)
 end
 
 module Scroll = struct
@@ -79,12 +79,12 @@ type cliflags = {
   width : int;
 }
 
-let rec gettextlen acc = function
+let rec textlen acc = function
   | [] -> acc
-  | str :: rest -> gettextlen (succ acc + String.length str) rest
+  | str :: rest -> (textlen [@tailcall]) (succ acc + String.length str) rest
 
-let getfinaltext text endcap_char endcap_len width direction mode =
-  let text_len = gettextlen (-1) text in
+let finaltext text endcap_char endcap_len width direction =
+  let text_len = textlen (-1) text in
   let width_minus_text_len = width - text_len in
   let ecl =
     if Direction.equal direction Bounce then Int.max 0 width_minus_text_len
@@ -109,7 +109,7 @@ let getfinaltext text endcap_char endcap_len width direction mode =
         | [] -> ()
         | _ ->
             Bytes.set dst poslen ' ';
-            blittext ~dst (succ poslen) ts)
+            (blittext [@tailcall]) ~dst (succ poslen) ts)
   in
   let buf = Bytes.create total_len in
   begin match direction with
@@ -143,19 +143,17 @@ let run text
       terminator;
       width;
     } =
-  let finaltext =
-    getfinaltext text endcap_char endcap_len width direction mode
-  in
+  let finaltext = finaltext text endcap_char endcap_len width direction in
   let lastchar =
     match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
   in
-  let rec getwordbounds th idx list f adj =
+  let rec wordbounds th idx list f adj =
     if idx = th then list
     else if
       Char.( = ) (Bytes.unsafe_get finaltext idx) ' '
       && Char.( <> ) (Bytes.unsafe_get finaltext (succ idx)) ' '
-    then getwordbounds th (f idx) ((idx - adj) :: list) f adj
-    else getwordbounds th (f idx) list f adj
+    then (wordbounds [@tailcall]) th (f idx) ((idx - adj) :: list) f adj
+    else (wordbounds [@tailcall]) th (f idx) list f adj
   in
   let pfix = Bytes.of_string prefix in
   let plen = Bytes.length pfix in
@@ -168,7 +166,8 @@ let run text
     Externs.unsafe_output_char stdout lastchar;
     Externs.unsafe_flush stdout
   in
-  let loopandprint ticks indexes =
+  let loopandprint ticks l =
+    let indexes = Array.of_list l in
     let maxidx = pred (Array.length indexes) in
     let rec loop ticks idx =
       if ticks <= 0 then ()
@@ -182,141 +181,81 @@ let run text
     loop ticks 0
   in
   let lenfintext = Bytes.length finaltext in
-  let lenorigtext = gettextlen (-1) text in
+  let lenminuswidth = lenfintext - width in
+  let halflen = lenfintext asr 1 in
+  let predlentext = pred lenfintext in
+  let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
+  let lenorigtext = textlen (-1) text in
+  let revandtake n l = List.take (List.rev l) n in
 
   begin match
     (direction, scroll, mode, Ordering.of_int (compare lenorigtext width))
   with
-  | Bounce, Char, _, _ -> begin
-      let lenminuswidth = lenfintext - width in
-      (let rh = List.range ~stride:(-1) ~start:`exclusive lenminuswidth 0 in
-       0 :: List.rev_append rh (lenminuswidth :: rh))
-      |> Array.of_list
-      |> loopandprint ((Int.max 1 lenminuswidth * cycles) lsl 1)
-    end
-  | Bounce, Word, _, Greater -> begin
-      let lenminuswidth = lenfintext - width in
-      let indexes =
-        let wordcount =
-          Int.max 1 (pred (List.fold text ~init:0 ~f:(fun i _ -> succ i)))
-        in
-        List.remove_consecutive_duplicates
-          (List.filter
-             (List.append
-                (wordcount
-                |> List.take
-                     (getwordbounds (pred lenfintext) 1 [ 0 ] succ (-1)
-                     |> List.rev))
-                (wordcount
-                |> List.take
-                     (getwordbounds width (pred lenfintext) [ lenminuswidth ]
-                        pred width
-                     |> List.rev)))
-             ~f:(fun x -> x <= lenminuswidth))
-          ~equal:(fun a b -> a = b)
-        |> Array.of_list
+  | Bounce, Word, (Wrap | Reset), Greater -> begin
+      let bwordcount = Int.max 1 (pred wordcount) in
+      let lh =
+        revandtake bwordcount (wordbounds predlentext 1 [ 0 ] succ (-1))
       in
-      loopandprint (Array.length indexes * cycles) indexes
+      let rh =
+        revandtake bwordcount
+          (wordbounds width predlentext [ lenminuswidth ] pred width)
+      in
+      let fltr =
+        List.filter (List.append lh rh) ~f:(fun x -> x <= lenminuswidth)
+      in
+      let indexes =
+        List.remove_consecutive_duplicates fltr ~equal:(fun a b -> a = b)
+      in
+      loopandprint (List.length indexes * cycles) indexes
     end
-  | Bounce, Word, _, Equal -> begin [| 0 |] |> loopandprint cycles end
-  | Bounce, Word, _, Less -> begin
-      let lenminuswidth = lenfintext - width in
-      [| 0; lenminuswidth |] |> loopandprint (2 * cycles)
-    end
-  | Left, Char, Wrap, _ -> begin
-      let halflen = lenfintext asr 1 in
-      List.range 0 halflen |> Array.of_list |> loopandprint (halflen * cycles)
-    end
-  | Left, Char, Reset, Greater -> begin
-      let halflen = lenfintext asr 1 in
-
-      List.range 0 (halflen - width)
-      |> Array.of_list
-      |> loopandprint (succ (lenorigtext - width) * cycles)
-    end
-  | Left, Char, Reset, (Equal | Less) -> begin [| 0 |] |> loopandprint cycles end
-  | Left, Word, Wrap, _ -> begin
-      let halflen = lenfintext asr 1 in
-      let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
-      wordcount
-      |> List.take (getwordbounds halflen 0 [ 0 ] succ (-1) |> List.rev)
-      |> Array.of_list
-      |> loopandprint (wordcount * cycles)
+  | Right, Word, Reset, Greater -> begin
+      let prelims =
+        revandtake wordcount
+          (wordbounds width predlentext [ lenminuswidth ] pred width)
+      in
+      let los =
+        List.fold prelims ~init:(-1) ~f:(fun a x ->
+            if x <= succ halflen then succ a else a)
+      in
+      let indexes = List.length prelims - los |> List.take prelims in
+      loopandprint (List.length indexes * cycles) indexes
     end
   | Left, Word, Reset, Greater -> begin
-      let halflen = lenfintext asr 1 in
-
-      let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
       let prelims =
-        wordcount
-        |> List.take (getwordbounds halflen 0 [ 0 ] succ (-1) |> List.rev)
+        revandtake wordcount (wordbounds halflen 0 [ 0 ] succ (-1))
       in
       let his =
         List.fold prelims ~init:(-1) ~f:(fun a x ->
             if x >= pred (halflen - width) then succ a else a)
       in
-      let indexes =
-        List.length prelims - his |> List.take prelims |> Array.of_list
-      in
-      loopandprint (Array.length indexes * cycles) indexes
+      let indexes = List.length prelims - his |> List.take prelims in
+      loopandprint (List.length indexes * cycles) indexes
     end
-  | Left, Word, Reset, _ -> begin [| 0 |] |> loopandprint cycles end
-  | Right, Char, Wrap, _ -> begin
-      let lenminuswidth = lenfintext - width in
-      let halflen = lenfintext asr 1 in
-      let minpos = lenminuswidth - halflen in
-      List.range ~stride:(-1) lenminuswidth minpos
-      |> Array.of_list
-      |> loopandprint (halflen * cycles)
-    end
-  | Right, Char, Reset, Greater -> begin
-      let lenminuswidth = lenfintext - width in
-      let halflen = lenfintext asr 1 in
-
-      List.range ~stride:(-1) lenminuswidth halflen
-      |> Array.of_list
-      |> loopandprint (succ (lenorigtext - width) * cycles)
-    end
-  | Right, Char, Reset, _ -> begin
-      let lenminuswidth = lenfintext - width in
-
-      [| lenminuswidth |] |> loopandprint cycles
-    end
-  | Right, Word, Wrap, _ -> begin
-      let lenminuswidth = lenfintext - width in
-      let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
-      wordcount
-      |> List.take
-           (getwordbounds width (pred lenfintext) [ lenminuswidth ] pred width
-           |> List.rev)
-      |> Array.of_list
+  | Right, Word, Wrap, (Greater | Equal | Less) ->
+      revandtake wordcount
+        (wordbounds width predlentext [ lenminuswidth ] pred width)
       |> loopandprint (wordcount * cycles)
-    end
-  | Right, Word, Reset, Greater -> begin
-      let lenminuswidth = lenfintext - width in
-      let halflen = lenfintext asr 1 in
-
-      let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
-      let prelims =
-        wordcount
-        |> List.take
-             (getwordbounds width (pred lenfintext) [ lenminuswidth ] pred width
-             |> List.rev)
-      in
-      let lows =
-        List.fold prelims ~init:(-1) ~f:(fun a x ->
-            if x <= succ halflen then succ a else a)
-      in
-      let indexes =
-        List.take prelims (List.length prelims - lows) |> Array.of_list
-      in
-      loopandprint (Array.length indexes * cycles) indexes
-    end
-  | Right, Word, Reset, _ -> begin
-      let lenminuswidth = lenfintext - width in
-
-      [| lenminuswidth |] |> loopandprint cycles
-    end
+  | Left, Word, Wrap, (Greater | Equal | Less) ->
+      revandtake wordcount (wordbounds halflen 0 [ 0 ] succ (-1))
+      |> loopandprint (wordcount * cycles)
+  | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
+      (let rh = List.range ~stride:(-1) ~start:`exclusive lenminuswidth 0 in
+       0 :: List.rev_append rh (lenminuswidth :: rh))
+      |> loopandprint ((Int.max 1 lenminuswidth * cycles) lsl 1)
+  | Right, Char, Wrap, (Greater | Equal | Less) ->
+      List.range ~stride:(-1) lenminuswidth (lenminuswidth - halflen)
+      |> loopandprint (halflen * cycles)
+  | Right, Char, Reset, Greater ->
+      List.range ~stride:(-1) lenminuswidth halflen
+      |> loopandprint (succ (lenorigtext - width) * cycles)
+  | Left, Char, Reset, Greater ->
+      List.range 0 (halflen - width)
+      |> loopandprint (succ (lenorigtext - width) * cycles)
+  | Left, Char, Wrap, (Greater | Equal | Less) ->
+      List.range 0 halflen |> loopandprint (halflen * cycles)
+  | Bounce, Word, (Wrap | Reset), (Equal | Less)
+  | (Left | Right), (Char | Word), Reset, (Equal | Less) ->
+      loopandprint (cycles lsl 1) [ 0; lenminuswidth ]
   end;
   match terminator with
   | Newline -> ()
