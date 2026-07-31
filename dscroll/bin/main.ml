@@ -107,14 +107,16 @@ let () =
 ├───────────┼──────────┼─────────┼────────────┤
 │ Optimized │  96.61ms │  23.00w │    100.00% │
 └───────────┴──────────┴─────────┴────────────┘ *)
-
-(* let () =
+(* 
+let () =
   let s = Gc.quick_stat () in
   Printf.printf
     "minor_collections=%d major_collections=%d promoted_words=%f \
      minor_words=%f major_words=%f\n"
     s.minor_collections s.major_collections s.promoted_words s.minor_words
-    s.major_words *)
+    s.major_words
+
+    minor_collections=3 major_collections=1 promoted_words=140615.000000 minor_words=255852.000000 major_words=149839.000000 *)
 
 (* perf record --call-graph dwarf --period=1000 --event=cycles:u *)
 
@@ -394,3 +396,33 @@ heap_chunks: 0 *)
   0.00    0.000000           0         1           io_uring_setup
 ------ ----------- ----------- --------- --------- ------------------
 100.00    0.004308           9       435         5 total *)
+
+(* Performance counter stats for './_build/default/bin/main.exe mary had a little lamb -c 10 -w 17 -sl 150' (10 runs):
+
+                 0      context-switches:u               #      0.0 cs/sec  cs_per_second     
+                 0      cpu-migrations:u                 #      0.0 migrations/sec  migrations_per_second
+             1,561      page-faults:u                    #  41419.6 faults/sec  page_faults_per_second  ( +-  0.06% )
+             37.69 msec task-clock:u                     #      0.0 CPUs  CPUs_utilized         ( +-  1.28% )
+           217,339      L1-dcache-load-misses:u          #      8.4 %  l1d_miss_rate            ( +-  7.55% )  (38.53%)
+           149,879      LLC-loads:u                      #     55.1 %  llc_miss_rate            ( +- 10.45% )  (12.92%)
+            82,263      branch-misses:u                  #      2.1 %  branch_miss_rate         ( +- 10.55% )  (21.15%)
+         4,934,954      branches:u                       #    130.9 M/sec  branch_frequency     ( +-  8.15% )  (18.82%)
+        18,652,798      cpu-cycles:u                     #      0.5 GHz  cycles_frequency       ( +-  5.42% )  (26.81%)
+        20,780,987      instructions:u                   #      1.2 instructions  insn_per_cycle  ( +-  7.90% )  (48.56%)
+
+      34.566471841 +- 0.000641102 seconds time elapsed  ( +-  0.00% ) *)
+
+(* Performance counter stats for './_build/default/bin/main.exe mary had a little lamb -c 10 -w 17 -sl 150' (10 runs):
+
+                 0      context-switches:u               #      0.0 cs/sec  cs_per_second     
+                 0      cpu-migrations:u                 #      0.0 migrations/sec  migrations_per_second
+             1,554      page-faults:u                    #  41755.2 faults/sec  page_faults_per_second  ( +-  0.09% )
+             37.22 msec task-clock:u                     #      0.0 CPUs  CPUs_utilized         ( +-  1.18% )
+           214,169      L1-dcache-load-misses:u          #      9.4 %  l1d_miss_rate            ( +-  7.57% )  (41.09%)
+           126,134      LLC-loads:u                      #     54.0 %  llc_miss_rate            ( +- 12.05% )  (13.41%)
+            73,280      branch-misses:u                  #      2.1 %  branch_miss_rate         ( +- 10.22% )  (23.81%)
+         5,142,945      branches:u                       #    138.2 M/sec  branch_frequency     ( +-  7.39% )  (18.23%)
+        18,905,542      cpu-cycles:u                     #      0.5 GHz  cycles_frequency       ( +-  5.74% )  (28.33%)
+        23,454,551      instructions:u                   #      1.3 instructions  insn_per_cycle  ( +-  4.54% )  (45.50%)
+
+      34.566038837 +- 0.000571831 seconds time elapsed  ( +-  0.00% ) *)
