@@ -19,7 +19,17 @@
  (name chyron)
  (synopsis "text scroller/ticker/chyron")
  (description "a text scroller/ticker for polybar, etc.")
- (depends ocaml dune core)
+ (depends
+  ocaml
+  dune
+  core
+  ppx_jane
+  core_unix
+  ppx_inline_test
+  ppx_deriving
+  ppx_assert
+  qcheck-core)
  (tags ("scroll ticker chyron")))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html
+; (depends ocaml dune base core ppx_jane core_unix ocaml-lsp-server ocamlformat odoc ppx_inline_test utop ppx_deriving ppx_assert qcheck-core)

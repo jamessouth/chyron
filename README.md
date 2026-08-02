@@ -1,2 +1,2 @@
-# dscroll
+# chyron
 scroll text
