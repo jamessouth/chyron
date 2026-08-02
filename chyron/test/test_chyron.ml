@@ -34,15 +34,15 @@ QCheck_base_runner.run_tests_main
                 not (Core.Char.is_whitespace s)));
           let open Core in
           let ft =
-            Dscroll.getfinaltext text ' ' ecl wid Dscroll.Direction.Left
+            Chyron.getfinaltext text ' ' ecl wid Chyron.Direction.Left
           in
           let ftlen = String.length ft / 2 in
-          let res = Dscroll.getnextoutput ft (frm % ftlen) wid in
+          let res = Chyron.getnextoutput ft (frm % ftlen) wid in
           String.length res = wid
           && String.equal
-               (Dscroll.tloop
+               (Chyron.tloop
                   (String.sub ft ~pos:0 ~len:ftlen)
-                  ftlen (frm % ftlen) wid Dscroll.Direction.Left)
+                  ftlen (frm % ftlen) wid Chyron.Direction.Left)
                res
           && wid - String.count res ~f:Char.is_whitespace >= 1));
     QCheck2.(
@@ -59,17 +59,17 @@ QCheck_base_runner.run_tests_main
                 not (Core.Char.is_whitespace s)));
           let open Core in
           let ft =
-            Dscroll.getfinaltext text ' ' ecl wid Dscroll.Direction.Right
+            Chyron.getfinaltext text ' ' ecl wid Chyron.Direction.Right
           in
           let ftlen = String.length ft / 2 in
           let res =
-            Dscroll.getnextoutput ft ((ftlen * 2) - wid - (frm % ftlen)) wid
+            Chyron.getnextoutput ft ((ftlen * 2) - wid - (frm % ftlen)) wid
           in
           String.length res = wid
           && String.equal
-               (Dscroll.tloop
+               (Chyron.tloop
                   (String.sub ft ~pos:0 ~len:ftlen)
-                  ftlen (frm % ftlen) wid Dscroll.Direction.Right)
+                  ftlen (frm % ftlen) wid Chyron.Direction.Right)
                res
           && wid - String.count res ~f:Char.is_whitespace >= 1));
     QCheck2.(
@@ -86,17 +86,17 @@ QCheck_base_runner.run_tests_main
                 not (Core.Char.is_whitespace s)));
           let open Core in
           let ft =
-            Dscroll.getfinaltext text ' ' ecl wid Dscroll.Direction.Bounce
+            Chyron.getfinaltext text ' ' ecl wid Chyron.Direction.Bounce
           in
           let totlen = String.length ft - wid in
           let modlen = 2 * totlen in
           let fr =
             if totlen = 0 then 0 else totlen - abs ((frm % modlen) - totlen)
           in
-          let res = Dscroll.getnextoutput ft fr wid in
+          let res = Chyron.getnextoutput ft fr wid in
           String.length res = wid
           && String.equal
-               (Dscroll.tloop ft 0 fr wid Dscroll.Direction.Bounce)
+               (Chyron.tloop ft 0 fr wid Chyron.Direction.Bounce)
                res)); *)
     (* QCheck2.(
       Test.make ~count:1000 ~name:"nonnegint1"
@@ -111,7 +111,7 @@ QCheck_base_runner.run_tests_main
         Gen.(pair (Gen.int_bound 2) (Gen.int_bound 2000))
         (fun (min, n) ->
           let numstr = string_of_int n in
-          let res = Dscroll.Ints.getint ~min numstr in
+          let res = Chyron.Ints.getint ~min numstr in
           res >= min && res >= n && res >= 0));
     QCheck2.(
       Test.make ~count:1000 ~name:"nonnegint2"
@@ -120,7 +120,7 @@ QCheck_base_runner.run_tests_main
         (fun s ->
           assume (int_of_string_opt s = None);
           try
-            let _ = Dscroll.Ints.getint ~min:0 s in
+            let _ = Chyron.Ints.getint ~min:0 s in
             false
           with
           | Invalid_argument _ -> true
@@ -131,7 +131,7 @@ QCheck_base_runner.run_tests_main
         Gen.(pair int_neg string)
         (fun (min, n) ->
           try
-            let _ = Dscroll.Ints.getint ~min n in
+            let _ = Chyron.Ints.getint ~min n in
             false
           with
           | Invalid_argument _ -> true
@@ -150,7 +150,7 @@ QCheck_base_runner.run_tests_main
                 not (Core.Char.is_whitespace s)));
           let open Core in
           let res =
-            Dscroll.getfinaltext text ' ' ecl wid Dscroll.Direction.Left
+            Chyron.getfinaltext text ' ' ecl wid Chyron.Direction.Left
           in
           let reslen = String.length res / 2 in
           let padlen = reslen - String.length text in
@@ -170,7 +170,7 @@ QCheck_base_runner.run_tests_main
                 not (Core.Char.is_whitespace s)));
           let open Core in
           let res =
-            Dscroll.getfinaltext text ' ' ecl wid Dscroll.Direction.Right
+            Chyron.getfinaltext text ' ' ecl wid Chyron.Direction.Right
           in
           let reslen = String.length res / 2 in
           let padlen = reslen - String.length text in
@@ -190,7 +190,7 @@ QCheck_base_runner.run_tests_main
                 not (Core.Char.is_whitespace s)));
           let open Core in
           let res =
-            Dscroll.getfinaltext text ' ' ecl wid Dscroll.Direction.Bounce
+            Chyron.getfinaltext text ' ' ecl wid Chyron.Direction.Bounce
           in
           let padlen = (String.length res - String.length text) / 2 in
           let reslen = padlen + String.length text in

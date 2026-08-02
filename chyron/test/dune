@@ -1,0 +1,3 @@
+(test
+ (libraries chyron core qcheck-core qcheck-core.runner)
+ (name test_chyron))

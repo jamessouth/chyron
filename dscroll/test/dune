@@ -1,3 +1,0 @@
-(test
- (libraries dscroll core qcheck-core qcheck-core.runner)
- (name test_dscroll))

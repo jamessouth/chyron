@@ -6,6 +6,6 @@
  (libraries core core_unix.time_float_unix)
  (modules
   (:standard \ benchmk))
- (name dscroll)
+ (name chyron)
  (preprocess
   (pps ppx_jane)))

@@ -1,11 +1,11 @@
 (lang dune 3.22)
 
-(name dscroll)
+(name chyron)
 
 (generate_opam_files true)
 
 (source
- (github jamessouth/dscroll))
+ (github jamessouth/chyron))
 
 (authors "James D. South")
 
@@ -13,13 +13,13 @@
 
 (license GPL3)
 
-(documentation https://github.com/jamessouth/dscroll/blob/master/README.md)
+(documentation https://github.com/jamessouth/chyron/blob/master/README.md)
 
 (package
- (name dscroll)
- (synopsis "text scroller")
- (description "a text scroller for polybar, etc., inspired by zscroll")
+ (name chyron)
+ (synopsis "text scroller/ticker/chyron")
+ (description "a text scroller/ticker for polybar, etc.")
  (depends ocaml dune core)
- (tags ("scroll text")))
+ (tags ("scroll ticker chyron")))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html
