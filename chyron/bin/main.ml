@@ -76,7 +76,16 @@ let () =
        (let%map_open.Command text =
           anon (non_empty_sequence_as_list ("text" %: string))
         and flags in
-        fun () -> run text flags))
+        fun () ->
+          if
+            List.fold_until text ~init:false
+              ~f:(fun a s ->
+                if String.exists s ~f:(fun c -> Char.to_int c > 127) then
+                  Stop true
+                else Continue false)
+              ~finish:(fun a -> a)
+          then runuc text flags
+          else run text flags))
 
 (* let () =
   Gc.print_stat stderr;

@@ -28,7 +28,8 @@
   ppx_inline_test
   ppx_deriving
   ppx_assert
-  qcheck-core)
+  qcheck-core
+  uuseg)
  (tags ("scroll ticker chyron")))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html

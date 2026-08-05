@@ -13,6 +13,12 @@ depends: [
   "ocaml"
   "dune" {>= "3.22"}
   "core"
+  "ppx_jane"
+  "core_unix"
+  "ppx_inline_test"
+  "ppx_deriving"
+  "ppx_assert"
+  "qcheck-core"
   "odoc" {with-doc}
 ]
 build: [

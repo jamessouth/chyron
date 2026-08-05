@@ -3,7 +3,7 @@
  (foreign_stubs
   (language c)
   (names nanosleep_stub))
- (libraries core core_unix.time_float_unix)
+ (libraries core core_unix.time_float_unix uuseg)
  (modules
   (:standard \ benchmk))
  (name chyron)
