@@ -77,6 +77,19 @@ type cliflags = {
   width : int;
 }
 
+let bytesofutfchars str visualchars =
+  let bytelen, _ =
+    Uuseg_string.fold_utf_8 `Grapheme_cluster
+      (fun (bytecount, charcount) char ->
+        if charcount >= visualchars then (bytecount, charcount)
+        else (bytecount + String.length char, succ charcount))
+      (0, 0) str
+  in
+  bytelen
+
+let listofutfchars str =
+  Uuseg_string.fold_utf_8 `Grapheme_cluster (fun acc char -> char :: acc) [] str
+
 let runuc text
     {
       cycles;
@@ -98,7 +111,7 @@ let runuc text
       (fun count _ -> succ count)
       0 joined_text
   in
-  print_endline ("textlen" ^ string_of_int text_len);
+  print_endline ("textlen " ^ string_of_int text_len);
   let width_minus_text_len = width - text_len in
   let ecl =
     if Direction.equal direction Bounce then Int.max 0 width_minus_text_len
@@ -134,25 +147,30 @@ let runuc text
   let plen = Bytes.length pfix in
   let sfix = Bytes.of_string suffix in
   let slen = Bytes.length sfix in
-  let print pos =
+  let print pos wid =
+    print_endline (string_of_int pos ^ " " ^ string_of_int wid);
     Externs.unsafe_output_bytes stdout pfix 0 plen;
-    Externs.unsafe_output_bytes stdout finaltext pos width;
+    Externs.unsafe_output_bytes stdout finaltext pos wid;
     Externs.unsafe_output_bytes stdout sfix 0 slen;
     Externs.unsafe_output_char stdout lastchar;
     Externs.unsafe_flush stdout
   in
+  let ftstr = Bytes.to_string finaltext in
   let loopandprint ticks l =
     print_endline (List.to_string ~f:string_of_int l);
-    print_endline (Bytes.to_string finaltext ^ "|\n");
+    print_endline (ftstr ^ "|\n");
+    print_endline (String.concat (listofutfchars ftstr) ^ "|\n");
     let indexes = Array.of_list l in
     let arrlen = pred (Array.length indexes) in
     if rest = 0 then
       let rec loop ticks idx =
         if ticks <= 0 then ()
         else begin
-          print (Array.unsafe_get indexes idx);
+          print
+            (Array.unsafe_get indexes idx)
+            (Array.unsafe_get indexes (idx + 1));
           Externs.caml_clock_nanosleep sleep;
-          let nidx = if idx = arrlen then 0 else succ idx in
+          let nidx = if idx = arrlen then 0 else succ idx + 1 in
           (loop [@tailcall]) (pred ticks) nidx
         end
       in
@@ -169,7 +187,7 @@ let runuc text
         else begin
           let pos = Array.unsafe_get indexes idx in
           (* print_string (string_of_int pos ^ " "); *)
-          print pos;
+          print pos width;
           Externs.caml_clock_nanosleep
             (if pos = minidx || pos = maxidx then rest else sleep);
           let nidx = if idx = arrlen then 0 else succ idx in
@@ -178,6 +196,7 @@ let runuc text
       in
       loop ticks 0
   in
+  let totallen = Bytes.length finaltext in
   let lenminuswidth = totallen - width in
   let halflen = totallen asr 1 in
   let predlentext = pred totallen in
@@ -231,8 +250,26 @@ let runuc text
       loopandprint (List.length indexes * cycles) indexes
     end
   | Right, Word, Wrap, (Greater | Equal | Less) ->
-      revandtake wordcount
-        (wordbounds width predlentext [ lenminuswidth ] pred width)
+      let rec getinx tix charlist lt =
+        print_endline (List.to_string ~f:(fun x -> x) charlist);
+        if tix <= 0 then lt
+        else
+          let f = String.concat charlist in
+          let b = bytesofutfchars f width in
+          print_endline (string_of_int b);
+          getinx (pred tix)
+            (List.drop
+               (List.drop_while charlist ~f:(fun x -> String.( <> ) x " "))
+               1)
+            (b :: (String.length f - b) :: lt)
+      in
+      let ggg = getinx wordcount (listofutfchars ftstr) [] in
+      let p = List.rev ggg in
+      print_endline (List.to_string ~f:string_of_int p);
+      print_endline "-----";
+      p
+      (* revandtake wordcount
+        (wordbounds width predlentext [ lenminuswidth ] pred width) *)
       |> loopandprint (wordcount * cycles)
   | Left, Word, Wrap, (Greater | Equal | Less) ->
       revandtake wordcount (wordbounds halflen 0 [ 0 ] succ (-1))
