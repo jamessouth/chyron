@@ -206,6 +206,33 @@ let runuc text
   print_endline (string_of_int totallen);
   print_endline (string_of_int lenminuswidth);
   print_endline (string_of_int halflen);
+
+  let rec getinx tix charlist lt =
+    print_endline (List.to_string ~f:(fun x -> x) charlist);
+    if tix <= 0 then lt
+    else
+      let f = String.concat charlist in
+      let b = bytesofutfchars f width in
+      print_endline (string_of_int b);
+      getinx (pred tix)
+        (List.drop
+           (List.drop_while charlist ~f:(fun x -> String.( <> ) x " "))
+           1)
+        (b :: (String.length f - b) :: lt)
+  in
+  let rec getinxl tix charlist drops lt =
+    print_endline (List.to_string ~f:(fun x -> x) charlist);
+    if tix <= 0 then lt
+    else
+      let f = String.concat charlist in
+      let b = bytesofutfchars f width in
+      print_endline (string_of_int b);
+      let l, r = List.split_while charlist ~f:(fun x -> String.( <> ) x " ") in
+      getinxl (pred tix) (List.drop r 1)
+        (succ (String.length (String.concat l)) + drops)
+        (b :: drops :: lt)
+  in
+
   begin match
     (direction, scroll, mode, Ordering.of_int (compare text_len width))
   with
@@ -250,19 +277,6 @@ let runuc text
       loopandprint (List.length indexes * cycles) indexes
     end
   | Right, Word, Wrap, (Greater | Equal | Less) ->
-      let rec getinx tix charlist lt =
-        print_endline (List.to_string ~f:(fun x -> x) charlist);
-        if tix <= 0 then lt
-        else
-          let f = String.concat charlist in
-          let b = bytesofutfchars f width in
-          print_endline (string_of_int b);
-          getinx (pred tix)
-            (List.drop
-               (List.drop_while charlist ~f:(fun x -> String.( <> ) x " "))
-               1)
-            (b :: (String.length f - b) :: lt)
-      in
       let ggg = getinx wordcount (listofutfchars ftstr) [] in
       let p = List.rev ggg in
       print_endline (List.to_string ~f:string_of_int p);
@@ -272,7 +286,12 @@ let runuc text
         (wordbounds width predlentext [ lenminuswidth ] pred width) *)
       |> loopandprint (wordcount * cycles)
   | Left, Word, Wrap, (Greater | Equal | Less) ->
-      revandtake wordcount (wordbounds halflen 0 [ 0 ] succ (-1))
+      let ggg = getinxl wordcount (List.rev (listofutfchars ftstr)) 0 [] in
+      let p = List.rev ggg in
+      print_endline (List.to_string ~f:string_of_int p);
+      print_endline "-----";
+      p
+      (* revandtake wordcount (wordbounds halflen 0 [ 0 ] succ (-1)) *)
       |> loopandprint (wordcount * cycles)
   | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
       (let rh = List.range ~stride:(-1) ~start:`exclusive lenminuswidth 0 in
