@@ -160,8 +160,10 @@ let runuc text
     print_endline (List.to_string ~f:string_of_int l);
     print_endline (ftstr ^ "|\n");
     print_endline (String.concat (listofutfchars ftstr) ^ "|\n");
+    print_endline (string_of_int ticks);
     let indexes = Array.of_list l in
-    let arrlen = pred (Array.length indexes) in
+    Array.iter indexes ~f:(fun s -> print_endline (string_of_int s));
+    let arrlen = pred (Array.length indexes - 1) in
     if rest = 0 then
       let rec loop ticks idx =
         if ticks <= 0 then ()
@@ -220,6 +222,22 @@ let runuc text
            1)
         (b :: (String.length f - b) :: lt)
   in
+
+  let rec tupelize acc = function
+    | h :: n :: t -> tupelize ((h, n) :: acc) t
+    | _ -> List.rev acc
+  in
+
+  let rec detupelize acc = function
+    | (a, b) :: t -> detupelize (b :: a :: acc) t
+    | _ -> List.rev acc
+  in
+
+  (* (0 11 7 9 11 9 13 9 20 11)
+(41 9 36 9 27 11 25 11 21 11)
+
+
+(0 11 7 9 11 9 13 9) (15 9 10 9 1 11 0 10) *)
   let rec getinxl tix charlist drops lt =
     print_endline (List.to_string ~f:(fun x -> x) charlist);
     if tix <= 0 then lt
@@ -238,7 +256,37 @@ let runuc text
   with
   | Bounce, Word, (Wrap | Reset), Greater -> begin
       let bwordcount = Int.max 1 (pred wordcount) in
-      let lh =
+      let ggg = getinx bwordcount (listofutfchars ftstr) [] in
+      let p = tupelize [] (List.rev ggg) in
+      print_endline
+        (List.to_string
+           ~f:(fun (a, b) -> string_of_int a ^ "," ^ string_of_int b)
+           p);
+      let gggw = getinxl bwordcount (List.rev (listofutfchars ftstr)) 0 [] in
+      let pl = tupelize [] (List.rev gggw) in
+      print_endline
+        (List.to_string
+           ~f:(fun (a, b) -> string_of_int a ^ "," ^ string_of_int b)
+           pl);
+
+      let fltr =
+        List.filter (List.append pl p) ~f:(fun (x, _) -> x <= lenminuswidth)
+      in
+      print_endline
+        ("fltr: "
+        ^ List.to_string
+            ~f:(fun (a, b) -> string_of_int a ^ "," ^ string_of_int b)
+            fltr);
+      let indexes =
+        detupelize []
+          (List.drop_last_exn
+             (List.remove_consecutive_duplicates fltr
+                ~equal:(fun (a, _) (b, _) -> a = b)))
+      in
+      print_endline
+        ("inds: " ^ List.to_string ~f:(fun x -> string_of_int x) indexes);
+      loopandprint (List.length indexes * cycles) indexes
+      (* let lh =
         revandtake bwordcount (wordbounds predlentext 1 [ 0 ] succ (-1))
       in
       let rh =
@@ -251,7 +299,7 @@ let runuc text
       let indexes =
         List.remove_consecutive_duplicates fltr ~equal:(fun a b -> a = b)
       in
-      loopandprint (List.length indexes * cycles) indexes
+      loopandprint (List.length indexes * cycles) indexes *)
     end
   | Right, Word, Reset, Greater -> begin
       let prelims =
