@@ -87,6 +87,16 @@ let bytesofutfchars str visualchars =
   in
   bytelen
 
+let bytesofutfcharsdiff str visualchars =
+  let bytelen, chcnt =
+    Uuseg_string.fold_utf_8 `Grapheme_cluster
+      (fun (bytecount, charcount) char ->
+        if charcount >= visualchars then (bytecount, charcount)
+        else (bytecount + String.length char, succ charcount))
+      (0, 0) str
+  in
+  bytelen - chcnt
+
 let listofutfchars str =
   Uuseg_string.fold_utf_8 `Grapheme_cluster (fun acc char -> char :: acc) [] str
 
@@ -156,16 +166,20 @@ let runuc text
     Externs.unsafe_flush stdout
   in
   let ftstr = Bytes.to_string finaltext in
+  let revstr = String.concat (listofutfchars ftstr) ^ "|\n" in
   let loopandprint ticks l =
     print_endline (List.to_string ~f:string_of_int l);
     print_endline (ftstr ^ "|\n");
-    print_endline (String.concat (listofutfchars ftstr) ^ "|\n");
+    print_endline revstr;
     print_endline (string_of_int ticks);
     let indexes = Array.of_list l in
     Array.iter indexes ~f:(fun s -> print_endline (string_of_int s));
     let arrlen = pred (Array.length indexes - 1) in
+    print_endline ("arrlen " ^ string_of_int arrlen);
     if rest = 0 then
       let rec loop ticks idx =
+        print_endline ("ticks " ^ string_of_int ticks);
+        print_endline ("idx " ^ string_of_int idx);
         if ticks <= 0 then ()
         else begin
           print
@@ -199,7 +213,7 @@ let runuc text
       loop ticks 0
   in
   let totallen = Bytes.length finaltext in
-  let lenminuswidth = totallen - width in
+  let lenminuswidth = totallen - width - bytesofutfcharsdiff revstr width in
   let halflen = totallen asr 1 in
   let predlentext = pred totallen in
   let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
@@ -279,13 +293,13 @@ let runuc text
             fltr);
       let indexes =
         detupelize []
-          (List.drop_last_exn
+          (List.drop_last_exn (*if pos is 0*)
              (List.remove_consecutive_duplicates fltr
                 ~equal:(fun (a, _) (b, _) -> a = b)))
       in
       print_endline
         ("inds: " ^ List.to_string ~f:(fun x -> string_of_int x) indexes);
-      loopandprint (List.length indexes * cycles) indexes
+      loopandprint (succ bwordcount * cycles) indexes
       (* let lh =
         revandtake bwordcount (wordbounds predlentext 1 [ 0 ] succ (-1))
       in
