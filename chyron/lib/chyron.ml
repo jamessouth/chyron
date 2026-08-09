@@ -284,7 +284,8 @@ let runuc text
            pl);
 
       let fltr =
-        List.filter (List.append pl p) ~f:(fun (x, _) -> x <= lenminuswidth)
+        List.filteri (List.append pl p) ~f:(fun i (x, _) ->
+            (x > 0 || i = 0) && x <= lenminuswidth)
       in
       print_endline
         ("fltr: "
@@ -293,13 +294,12 @@ let runuc text
             fltr);
       let indexes =
         detupelize []
-          (List.drop_last_exn (*if pos is 0*)
-             (List.remove_consecutive_duplicates fltr
-                ~equal:(fun (a, _) (b, _) -> a = b)))
+          (List.remove_consecutive_duplicates fltr ~equal:(fun (a, _) (b, _) ->
+               a = b))
       in
       print_endline
         ("inds: " ^ List.to_string ~f:(fun x -> string_of_int x) indexes);
-      loopandprint (succ bwordcount * cycles) indexes
+      loopandprint (List.length indexes / 2 * cycles) indexes
       (* let lh =
         revandtake bwordcount (wordbounds predlentext 1 [ 0 ] succ (-1))
       in
