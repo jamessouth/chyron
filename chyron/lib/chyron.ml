@@ -342,20 +342,21 @@ let runuc text
     end
   | Left, Word, Reset, Greater -> begin
       let ggg = getinxl wordcount (List.rev (listofutfchars ftstr)) 0 [] in
-      let p =
-        detupelize []
-          (List.filter
-             (tupelize [] (List.rev ggg))
-             ~f:(fun (x, _) ->
-               x <= halflen + width - bytesofutfchars revstr width))
+      let p, q =
+        (* detupelize [] *)
+        List.split_while
+          (tupelize [] (List.rev ggg))
+          ~f:(fun (x, y) -> x + y < halflen)
       in
-      print_endline (List.to_string ~f:string_of_int p);
+      let r = List.take q 1 in
+      print_endline (List.to_string ~f:string_of_int (detupelize [] p));
+      print_endline (List.to_string ~f:string_of_int (detupelize [] r));
       print_endline (string_of_int (bytesofutfchars revstr width));
       print_endline "-----";
-      p
+      detupelize [] (List.append p r)
       (* revandtake wordcount
         (wordbounds width predlentext [ lenminuswidth ] pred width) *)
-      |> loopandprint (List.length p / 2 * cycles)
+      |> loopandprint (List.length (List.append p r) * cycles)
       (* let prelims =
         revandtake wordcount (wordbounds halflen 0 [ 0 ] succ (-1))
       in
