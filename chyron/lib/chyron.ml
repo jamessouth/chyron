@@ -215,7 +215,7 @@ let runuc text
   let totallen = Bytes.length finaltext in
   let lenminuswidth = totallen - width - bytesofutfcharsdiff revstr width in
   let halflen = totallen asr 1 in
-  let predlentext = pred totallen in
+  (* let predlentext = pred totallen in *)
   let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
   let revandtake n l = List.take (List.rev l) n in
 
@@ -269,14 +269,14 @@ let runuc text
     (direction, scroll, mode, Ordering.of_int (compare text_len width))
   with
   | Bounce, Word, (Wrap | Reset), Greater -> begin
-      let bwordcount = Int.max 1 (pred wordcount) in
-      let ggg = getinx bwordcount (listofutfchars ftstr) [] in
+      (* let bwordcount = Int.max 1 (pred wordcount) in *)
+      let ggg = getinx wordcount (listofutfchars ftstr) [] in
       let p = tupelize [] (List.rev ggg) in
       print_endline
         (List.to_string
            ~f:(fun (a, b) -> string_of_int a ^ "," ^ string_of_int b)
            p);
-      let gggw = getinxl bwordcount (List.rev (listofutfchars ftstr)) 0 [] in
+      let gggw = getinxl wordcount (List.rev (listofutfchars ftstr)) 0 [] in
       let pl = tupelize [] (List.rev gggw) in
       print_endline
         (List.to_string
@@ -316,7 +316,20 @@ let runuc text
       loopandprint (List.length indexes * cycles) indexes *)
     end
   | Right, Word, Reset, Greater -> begin
-      let prelims =
+      let ggg = getinx wordcount (listofutfchars ftstr) [] in
+      let p =
+        detupelize []
+          (List.filter
+             (tupelize [] (List.rev ggg))
+             ~f:(fun (x, _) -> x >= halflen))
+      in
+      print_endline (List.to_string ~f:string_of_int p);
+      print_endline "-----";
+      p
+      (* revandtake wordcount
+        (wordbounds width predlentext [ lenminuswidth ] pred width) *)
+      |> loopandprint (List.length p / 2 * cycles)
+      (* let prelims =
         revandtake wordcount
           (wordbounds width predlentext [ lenminuswidth ] pred width)
       in
@@ -325,7 +338,7 @@ let runuc text
             if x <= succ halflen then succ a else a)
       in
       let indexes = List.length prelims - los |> List.take prelims in
-      loopandprint (List.length indexes * cycles) indexes
+      loopandprint (List.length indexes * cycles) indexes *)
     end
   | Left, Word, Reset, Greater -> begin
       let prelims =
@@ -516,14 +529,19 @@ let run text
     (direction, scroll, mode, Ordering.of_int (compare text_len width))
   with
   | Bounce, Word, (Wrap | Reset), Greater -> begin
-      let bwordcount = Int.max 1 (pred wordcount) in
       let lh =
-        revandtake bwordcount (wordbounds predlentext 1 [ 0 ] succ (-1))
+        revandtake wordcount (wordbounds predlentext 1 [ 0 ] succ (-1))
       in
       let rh =
-        revandtake bwordcount
+        revandtake wordcount
           (wordbounds width predlentext [ lenminuswidth ] pred width)
       in
+      print_endline
+        (List.to_string ~f:string_of_int
+           (wordbounds predlentext 1 [ 0 ] succ (-1)));
+      print_endline
+        (List.to_string ~f:string_of_int
+           (wordbounds width predlentext [ lenminuswidth ] pred width));
       let fltr =
         List.filter (List.append lh rh) ~f:(fun x -> x <= lenminuswidth)
       in
