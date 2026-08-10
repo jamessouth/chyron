@@ -145,14 +145,14 @@ let runuc text
   let lastchar =
     match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
   in
-  let rec wordbounds th idx list f adj =
+  (* let rec wordbounds th idx list f adj =
     if idx = th then list
     else if
       Char.( = ) (Bytes.unsafe_get finaltext idx) ' '
       && Char.( <> ) (Bytes.unsafe_get finaltext (succ idx)) ' '
     then (wordbounds [@tailcall]) th (f idx) ((idx - adj) :: list) f adj
     else (wordbounds [@tailcall]) th (f idx) list f adj
-  in
+  in *)
   let pfix = Bytes.of_string prefix in
   let plen = Bytes.length pfix in
   let sfix = Bytes.of_string suffix in
@@ -217,7 +217,7 @@ let runuc text
   let halflen = totallen asr 1 in
   (* let predlentext = pred totallen in *)
   let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
-  let revandtake n l = List.take (List.rev l) n in
+  (* let revandtake n l = List.take (List.rev l) n in *)
 
   print_endline (string_of_int totallen);
   print_endline (string_of_int lenminuswidth);
@@ -341,7 +341,22 @@ let runuc text
       loopandprint (List.length indexes * cycles) indexes *)
     end
   | Left, Word, Reset, Greater -> begin
-      let prelims =
+      let ggg = getinxl wordcount (List.rev (listofutfchars ftstr)) 0 [] in
+      let p =
+        detupelize []
+          (List.filter
+             (tupelize [] (List.rev ggg))
+             ~f:(fun (x, _) ->
+               x <= halflen + width - bytesofutfchars revstr width))
+      in
+      print_endline (List.to_string ~f:string_of_int p);
+      print_endline (string_of_int (bytesofutfchars revstr width));
+      print_endline "-----";
+      p
+      (* revandtake wordcount
+        (wordbounds width predlentext [ lenminuswidth ] pred width) *)
+      |> loopandprint (List.length p / 2 * cycles)
+      (* let prelims =
         revandtake wordcount (wordbounds halflen 0 [ 0 ] succ (-1))
       in
       let his =
@@ -349,7 +364,7 @@ let runuc text
             if x >= pred (halflen - width) then succ a else a)
       in
       let indexes = List.length prelims - his |> List.take prelims in
-      loopandprint (List.length indexes * cycles) indexes
+      loopandprint (List.length indexes * cycles) indexes *)
     end
   | Right, Word, Wrap, (Greater | Equal | Less) ->
       let ggg = getinx wordcount (listofutfchars ftstr) [] in
