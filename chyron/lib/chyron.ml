@@ -247,11 +247,6 @@ let runuc text
     | _ -> List.rev acc
   in
 
-  (* (0 11 7 9 11 9 13 9 20 11)
-(41 9 36 9 27 11 25 11 21 11)
-
-
-(0 11 7 9 11 9 13 9) (15 9 10 9 1 11 0 10) *)
   let rec getinxl tix charlist drops lt =
     print_endline (List.to_string ~f:(fun x -> x) charlist);
     if tix <= 0 then lt
@@ -263,6 +258,15 @@ let runuc text
       getinxl (pred tix) (List.drop r 1)
         (succ (String.length (String.concat l)) + drops)
         (b :: drops :: lt)
+  in
+
+  let rec getinxlch charlist drops lt =
+    if drops >= succ lenminuswidth then lt
+    else
+      let f = String.concat charlist in
+      let b = bytesofutfchars f width in
+      let l, r = List.split_n charlist 1 in
+      getinxlch r (String.length (String.concat l) + drops) (b :: drops :: lt)
   in
 
   begin match
@@ -385,9 +389,14 @@ let runuc text
       (* revandtake wordcount (wordbounds halflen 0 [ 0 ] succ (-1)) *)
       |> loopandprint (wordcount * cycles)
   | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
-      (let rh = List.range ~stride:(-1) ~start:`exclusive lenminuswidth 0 in
-       0 :: List.rev_append rh (lenminuswidth :: rh))
-      |> loopandprint ((Int.max 1 lenminuswidth * cycles) lsl 1)
+      let o = getinxlch (List.rev (listofutfchars ftstr)) 0 [] in
+      let _, r = List.split_n o 2 in
+      let _, r2 = List.split_n (List.rev r) 2 in
+      let f = List.rev_append o (detupelize [] (List.rev (tupelize [] r2))) in
+
+      (* (let rh = List.range ~stride:(-1) ~start:`exclusive lenminuswidth 0 in
+       0 :: List.rev_append rh (lenminuswidth :: rh)) *)
+      loopandprint (List.length f / 2 * cycles) f
   | Right, Char, Wrap, (Greater | Equal | Less) ->
       List.range ~stride:(-1) lenminuswidth (lenminuswidth - halflen)
       |> loopandprint (halflen * cycles)

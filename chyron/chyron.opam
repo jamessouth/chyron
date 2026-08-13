@@ -19,6 +19,7 @@ depends: [
   "ppx_deriving"
   "ppx_assert"
   "qcheck-core"
+  "uuseg"
   "odoc" {with-doc}
 ]
 build: [
