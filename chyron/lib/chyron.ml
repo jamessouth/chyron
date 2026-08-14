@@ -420,8 +420,21 @@ let runuc text
       (* List.range ~stride:(-1) lenminuswidth (lenminuswidth - halflen)
       |> loopandprint (halflen * cycles) *)
   | Right, Char, Reset, Greater ->
-      List.range ~stride:(-1) lenminuswidth halflen
-      |> loopandprint (succ (text_len - width) * cycles)
+      let o =
+        detupelize []
+          (List.filter
+             (List.rev
+                (tupelize []
+                   (List.rev
+                      (lchinds (succ lenminuswidth)
+                         (List.rev (listofutfchars ftstr))
+                         width))))
+             ~f:(fun (a, _) -> a > halflen))
+      in
+
+      loopandprint (List.length o / 2 * cycles) o
+      (* List.range ~stride:(-1) lenminuswidth halflen
+      |> loopandprint (succ (text_len - width) * cycles) *)
   | Left, Char, Reset, Greater ->
       List.range 0 (halflen - width)
       |> loopandprint (succ (text_len - width) * cycles)
