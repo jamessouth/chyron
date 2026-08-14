@@ -260,13 +260,17 @@ let runuc text
         (b :: drops :: lt)
   in
 
-  let rec getinxlch charlist drops lt =
-    if drops >= succ lenminuswidth then lt
-    else
-      let f = String.concat charlist in
-      let b = bytesofutfchars f width in
-      let l, r = List.split_n charlist 1 in
-      getinxlch r (String.length (String.concat l) + drops) (b :: drops :: lt)
+  let lchinds th charlist wid =
+    let rec loop charlist pos lt =
+      if pos >= th then lt
+      else
+        let f = String.concat charlist in
+        let b = bytesofutfchars f wid in
+        (*constant if wid > textlen*)
+        let l, r = List.split_n charlist 1 in
+        loop r (String.length (String.concat l) + pos) (b :: pos :: lt)
+    in
+    loop charlist 0 []
   in
 
   begin match
@@ -389,7 +393,9 @@ let runuc text
       (* revandtake wordcount (wordbounds halflen 0 [ 0 ] succ (-1)) *)
       |> loopandprint (wordcount * cycles)
   | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
-      let o = getinxlch (List.rev (listofutfchars ftstr)) 0 [] in
+      let o =
+        lchinds (succ lenminuswidth) (List.rev (listofutfchars ftstr)) width
+      in
       let _, r = List.split_n o 2 in
       let _, r2 = List.split_n (List.rev r) 2 in
       let f = List.rev_append o (detupelize [] (List.rev (tupelize [] r2))) in
@@ -407,7 +413,11 @@ let runuc text
       List.range 0 (halflen - width)
       |> loopandprint (succ (text_len - width) * cycles)
   | Left, Char, Wrap, (Greater | Equal | Less) ->
-      List.range 0 halflen |> loopandprint (halflen * cycles)
+      let o =
+        List.rev (lchinds halflen (List.rev (listofutfchars ftstr)) width)
+      in
+
+      loopandprint (List.length o / 2 * cycles) o
   | Bounce, Word, (Wrap | Reset), (Equal | Less)
   | (Left | Right), (Char | Word), Reset, (Equal | Less) ->
       loopandprint (cycles lsl 1) [ 0; lenminuswidth ]
