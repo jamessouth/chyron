@@ -436,13 +436,21 @@ let runuc text
       (* List.range ~stride:(-1) lenminuswidth halflen
       |> loopandprint (succ (text_len - width) * cycles) *)
   | Left, Char, Reset, Greater ->
-      List.range 0 (halflen - width)
-      |> loopandprint (succ (text_len - width) * cycles)
+      let o =
+        detupelize []
+          (List.filter
+             (tupelize []
+                (List.rev
+                   (lchinds halflen (List.rev (listofutfchars ftstr)) width)))
+             ~f:(fun (a, b) -> a + b < halflen))
+      in
+      loopandprint (List.length o / 2 * cycles) o
+      (* List.range 0 (halflen - width)
+      |> loopandprint (succ (text_len - width) * cycles) *)
   | Left, Char, Wrap, (Greater | Equal | Less) ->
       let o =
         List.rev (lchinds halflen (List.rev (listofutfchars ftstr)) width)
       in
-
       loopandprint (List.length o / 2 * cycles) o
   | Bounce, Word, (Wrap | Reset), (Equal | Less)
   | (Left | Right), (Char | Word), Reset, (Equal | Less) ->
