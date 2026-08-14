@@ -265,8 +265,8 @@ let runuc text
       if pos >= th then lt
       else
         let f = String.concat charlist in
+        (*b is constant if wid > textlen*)
         let b = bytesofutfchars f wid in
-        (*constant if wid > textlen*)
         let l, r = List.split_n charlist 1 in
         loop r (String.length (String.concat l) + pos) (b :: pos :: lt)
     in
@@ -404,8 +404,21 @@ let runuc text
        0 :: List.rev_append rh (lenminuswidth :: rh)) *)
       loopandprint (List.length f / 2 * cycles) f
   | Right, Char, Wrap, (Greater | Equal | Less) ->
-      List.range ~stride:(-1) lenminuswidth (lenminuswidth - halflen)
-      |> loopandprint (halflen * cycles)
+      let o =
+        detupelize []
+          (List.filter
+             (List.rev
+                (tupelize []
+                   (List.rev
+                      (lchinds (succ lenminuswidth)
+                         (List.rev (listofutfchars ftstr))
+                         width))))
+             ~f:(fun (a, _) -> a > lenminuswidth - halflen))
+      in
+
+      loopandprint (List.length o / 2 * cycles) o
+      (* List.range ~stride:(-1) lenminuswidth (lenminuswidth - halflen)
+      |> loopandprint (halflen * cycles) *)
   | Right, Char, Reset, Greater ->
       List.range ~stride:(-1) lenminuswidth halflen
       |> loopandprint (succ (text_len - width) * cycles)
