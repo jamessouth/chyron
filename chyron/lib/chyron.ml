@@ -87,16 +87,6 @@ let bytesofutfchars str visualchars =
   in
   bytelen
 
-let bytesofutfcharsdiff str visualchars =
-  let bytelen, chcnt =
-    Uuseg_string.fold_utf_8 `Grapheme_cluster
-      (fun (bytecount, charcount) char ->
-        if charcount >= visualchars then (bytecount, charcount)
-        else (bytecount + String.length char, succ charcount))
-      (0, 0) str
-  in
-  bytelen - chcnt
-
 let listofutfchars str =
   Uuseg_string.fold_utf_8 `Grapheme_cluster (fun acc char -> char :: acc) [] str
 
@@ -145,14 +135,6 @@ let runuc text
   let lastchar =
     match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
   in
-  (* let rec wordbounds th idx list f adj =
-    if idx = th then list
-    else if
-      Char.( = ) (Bytes.unsafe_get finaltext idx) ' '
-      && Char.( <> ) (Bytes.unsafe_get finaltext (succ idx)) ' '
-    then (wordbounds [@tailcall]) th (f idx) ((idx - adj) :: list) f adj
-    else (wordbounds [@tailcall]) th (f idx) list f adj
-  in *)
   let pfix = Bytes.of_string prefix in
   let plen = Bytes.length pfix in
   let sfix = Bytes.of_string suffix in
@@ -168,18 +150,18 @@ let runuc text
   let ftstr = Bytes.to_string finaltext in
   let revstr = String.concat (listofutfchars ftstr) ^ "|\n" in
   let loopandprint ticks l =
-    print_endline (List.to_string ~f:string_of_int l);
+    (* print_endline (List.to_string ~f:string_of_int l);
     print_endline (ftstr ^ "|\n");
     print_endline revstr;
-    print_endline (string_of_int ticks);
+    print_endline (string_of_int ticks); *)
     let indexes = Array.of_list l in
-    Array.iter indexes ~f:(fun s -> print_endline (string_of_int s));
+    (* Array.iter indexes ~f:(fun s -> print_endline (string_of_int s)); *)
     let arrlen = pred (Array.length indexes - 1) in
-    print_endline ("arrlen " ^ string_of_int arrlen);
+    (* print_endline ("arrlen " ^ string_of_int arrlen); *)
     if rest = 0 then
       let rec loop ticks idx =
-        print_endline ("ticks " ^ string_of_int ticks);
-        print_endline ("idx " ^ string_of_int idx);
+        (* print_endline ("ticks " ^ string_of_int ticks);
+        print_endline ("idx " ^ string_of_int idx); *)
         if ticks <= 0 then ()
         else begin
           print
@@ -212,24 +194,26 @@ let runuc text
       in
       loop ticks 0
   in
-  let totallen = Bytes.length finaltext in
-  let lenminuswidth = totallen - width - bytesofutfcharsdiff revstr width in
+  (* let totallen = Bytes.length finaltext in *)
+  let lenminuswidth =
+    totallen - width - (bytesofutfchars revstr width - width)
+  in
   let halflen = totallen asr 1 in
   (* let predlentext = pred totallen in *)
   let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
   (* let revandtake n l = List.take (List.rev l) n in *)
 
-  print_endline (string_of_int totallen);
+  (* print_endline (string_of_int totallen);
   print_endline (string_of_int lenminuswidth);
-  print_endline (string_of_int halflen);
+  print_endline (string_of_int halflen); *)
 
+  (* print_endline (List.to_string ~f:(fun x -> x) charlist); *)
+  (* print_endline (string_of_int b); *)
   let rec getinx tix charlist lt =
-    print_endline (List.to_string ~f:(fun x -> x) charlist);
     if tix <= 0 then lt
     else
       let f = String.concat charlist in
       let b = bytesofutfchars f width in
-      print_endline (string_of_int b);
       getinx (pred tix)
         (List.drop
            (List.drop_while charlist ~f:(fun x -> String.( <> ) x " "))
@@ -237,23 +221,29 @@ let runuc text
         (b :: (String.length f - b) :: lt)
   in
 
-  let rec tupelize acc = function
-    | h :: n :: t -> tupelize ((h, n) :: acc) t
-    | _ -> List.rev acc
+  let tupelize lt =
+    let rec loop acc = function
+      | h :: n :: t -> loop ((h, n) :: acc) t
+      | _ -> List.rev acc
+    in
+    loop [] lt
   in
 
-  let rec detupelize acc = function
-    | (a, b) :: t -> detupelize (b :: a :: acc) t
-    | _ -> List.rev acc
+  let detupelize lt =
+    let rec loop acc = function
+      | (a, b) :: t -> loop (b :: a :: acc) t
+      | _ -> List.rev acc
+    in
+    loop [] lt
   in
 
+  (* print_endline (List.to_string ~f:(fun x -> x) charlist); *)
+  (* print_endline (string_of_int b); *)
   let rec getinxl tix charlist drops lt =
-    print_endline (List.to_string ~f:(fun x -> x) charlist);
     if tix <= 0 then lt
     else
       let f = String.concat charlist in
       let b = bytesofutfchars f width in
-      print_endline (string_of_int b);
       let l, r = List.split_while charlist ~f:(fun x -> String.( <> ) x " ") in
       getinxl (pred tix) (List.drop r 1)
         (succ (String.length (String.concat l)) + drops)
@@ -261,14 +251,14 @@ let runuc text
   in
 
   let lchinds th charlist wid =
-    let rec loop charlist pos lt =
-      if pos >= th then lt
+    let rec loop charlist pos acc =
+      if pos >= th then acc
       else
         let f = String.concat charlist in
         (*b is constant if wid > textlen*)
         let b = bytesofutfchars f wid in
         let l, r = List.split_n charlist 1 in
-        loop r (String.length (String.concat l) + pos) (b :: pos :: lt)
+        loop r (String.length (String.concat l) + pos) (b :: pos :: acc)
     in
     loop charlist 0 []
   in
@@ -279,13 +269,13 @@ let runuc text
   | Bounce, Word, (Wrap | Reset), Greater -> begin
       (* let bwordcount = Int.max 1 (pred wordcount) in *)
       let ggg = getinx wordcount (listofutfchars ftstr) [] in
-      let p = tupelize [] (List.rev ggg) in
+      let p = tupelize (List.rev ggg) in
       print_endline
         (List.to_string
            ~f:(fun (a, b) -> string_of_int a ^ "," ^ string_of_int b)
            p);
       let gggw = getinxl wordcount (List.rev (listofutfchars ftstr)) 0 [] in
-      let pl = tupelize [] (List.rev gggw) in
+      let pl = tupelize (List.rev gggw) in
       print_endline
         (List.to_string
            ~f:(fun (a, b) -> string_of_int a ^ "," ^ string_of_int b)
@@ -301,152 +291,97 @@ let runuc text
             ~f:(fun (a, b) -> string_of_int a ^ "," ^ string_of_int b)
             fltr);
       let indexes =
-        detupelize []
+        detupelize
           (List.remove_consecutive_duplicates fltr ~equal:(fun (a, _) (b, _) ->
                a = b))
       in
       print_endline
         ("inds: " ^ List.to_string ~f:(fun x -> string_of_int x) indexes);
       loopandprint (List.length indexes / 2 * cycles) indexes
-      (* let lh =
-        revandtake bwordcount (wordbounds predlentext 1 [ 0 ] succ (-1))
-      in
-      let rh =
-        revandtake bwordcount
-          (wordbounds width predlentext [ lenminuswidth ] pred width)
-      in
-      let fltr =
-        List.filter (List.append lh rh) ~f:(fun x -> x <= lenminuswidth)
-      in
-      let indexes =
-        List.remove_consecutive_duplicates fltr ~equal:(fun a b -> a = b)
-      in
-      loopandprint (List.length indexes * cycles) indexes *)
     end
   | Right, Word, Reset, Greater -> begin
       let ggg = getinx wordcount (listofutfchars ftstr) [] in
       let p =
-        detupelize []
+        detupelize
           (List.filter
-             (tupelize [] (List.rev ggg))
+             (tupelize (List.rev ggg))
              ~f:(fun (x, _) -> x >= halflen))
       in
       print_endline (List.to_string ~f:string_of_int p);
       print_endline "-----";
-      p
-      (* revandtake wordcount
-        (wordbounds width predlentext [ lenminuswidth ] pred width) *)
-      |> loopandprint (List.length p / 2 * cycles)
-      (* let prelims =
-        revandtake wordcount
-          (wordbounds width predlentext [ lenminuswidth ] pred width)
-      in
-      let los =
-        List.fold prelims ~init:(-1) ~f:(fun a x ->
-            if x <= succ halflen then succ a else a)
-      in
-      let indexes = List.length prelims - los |> List.take prelims in
-      loopandprint (List.length indexes * cycles) indexes *)
+      p |> loopandprint (List.length p / 2 * cycles)
     end
   | Left, Word, Reset, Greater -> begin
       let ggg = getinxl wordcount (List.rev (listofutfchars ftstr)) 0 [] in
       let p, q =
-        (* detupelize [] *)
         List.split_while
-          (tupelize [] (List.rev ggg))
+          (tupelize (List.rev ggg))
           ~f:(fun (x, y) -> x + y < halflen)
       in
       let r = List.take q 1 in
-      print_endline (List.to_string ~f:string_of_int (detupelize [] p));
+      (* print_endline (List.to_string ~f:string_of_int (detupelize [] p));
       print_endline (List.to_string ~f:string_of_int (detupelize [] r));
       print_endline (string_of_int (bytesofutfchars revstr width));
-      print_endline "-----";
-      detupelize [] (List.append p r)
-      (* revandtake wordcount
-        (wordbounds width predlentext [ lenminuswidth ] pred width) *)
+      print_endline "-----"; *)
+      detupelize (List.append p r)
       |> loopandprint (List.length (List.append p r) * cycles)
-      (* let prelims =
-        revandtake wordcount (wordbounds halflen 0 [ 0 ] succ (-1))
-      in
-      let his =
-        List.fold prelims ~init:(-1) ~f:(fun a x ->
-            if x >= pred (halflen - width) then succ a else a)
-      in
-      let indexes = List.length prelims - his |> List.take prelims in
-      loopandprint (List.length indexes * cycles) indexes *)
     end
   | Right, Word, Wrap, (Greater | Equal | Less) ->
       let ggg = getinx wordcount (listofutfchars ftstr) [] in
       let p = List.rev ggg in
       print_endline (List.to_string ~f:string_of_int p);
       print_endline "-----";
-      p
-      (* revandtake wordcount
-        (wordbounds width predlentext [ lenminuswidth ] pred width) *)
-      |> loopandprint (wordcount * cycles)
+      p |> loopandprint (wordcount * cycles)
   | Left, Word, Wrap, (Greater | Equal | Less) ->
       let ggg = getinxl wordcount (List.rev (listofutfchars ftstr)) 0 [] in
       let p = List.rev ggg in
       print_endline (List.to_string ~f:string_of_int p);
       print_endline "-----";
-      p
-      (* revandtake wordcount (wordbounds halflen 0 [ 0 ] succ (-1)) *)
-      |> loopandprint (wordcount * cycles)
+      p |> loopandprint (wordcount * cycles)
   | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
       let o =
         lchinds (succ lenminuswidth) (List.rev (listofutfchars ftstr)) width
       in
       let _, r = List.split_n o 2 in
       let _, r2 = List.split_n (List.rev r) 2 in
-      let f = List.rev_append o (detupelize [] (List.rev (tupelize [] r2))) in
-
-      (* (let rh = List.range ~stride:(-1) ~start:`exclusive lenminuswidth 0 in
-       0 :: List.rev_append rh (lenminuswidth :: rh)) *)
+      let f = List.rev_append o (detupelize (List.rev (tupelize r2))) in
       loopandprint (List.length f / 2 * cycles) f
   | Right, Char, Wrap, (Greater | Equal | Less) ->
       let o =
-        detupelize []
+        detupelize
           (List.filter
              (List.rev
-                (tupelize []
+                (tupelize
                    (List.rev
                       (lchinds (succ lenminuswidth)
                          (List.rev (listofutfchars ftstr))
                          width))))
              ~f:(fun (a, _) -> a > lenminuswidth - halflen))
       in
-
       loopandprint (List.length o / 2 * cycles) o
-      (* List.range ~stride:(-1) lenminuswidth (lenminuswidth - halflen)
-      |> loopandprint (halflen * cycles) *)
   | Right, Char, Reset, Greater ->
       let o =
-        detupelize []
+        detupelize
           (List.filter
              (List.rev
-                (tupelize []
+                (tupelize
                    (List.rev
                       (lchinds (succ lenminuswidth)
                          (List.rev (listofutfchars ftstr))
                          width))))
              ~f:(fun (a, _) -> a > halflen))
       in
-
       loopandprint (List.length o / 2 * cycles) o
-      (* List.range ~stride:(-1) lenminuswidth halflen
-      |> loopandprint (succ (text_len - width) * cycles) *)
   | Left, Char, Reset, Greater ->
       let o =
-        detupelize []
+        detupelize
           (List.filter
-             (tupelize []
+             (tupelize
                 (List.rev
                    (lchinds halflen (List.rev (listofutfchars ftstr)) width)))
              ~f:(fun (a, b) -> a + b < halflen))
       in
       loopandprint (List.length o / 2 * cycles) o
-      (* List.range 0 (halflen - width)
-      |> loopandprint (succ (text_len - width) * cycles) *)
   | Left, Char, Wrap, (Greater | Equal | Less) ->
       let o =
         List.rev (lchinds halflen (List.rev (listofutfchars ftstr)) width)
