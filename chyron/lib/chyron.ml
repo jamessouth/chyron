@@ -206,6 +206,7 @@ let runuc text
   print_endline (string_of_int totallen);
   print_endline (string_of_int lenminuswidth);
   print_endline (string_of_int halflen);
+  print_endline (string_of_int (totallen - bytesofutfchars revstr width));
 
   let tupelize lt =
     let rec loop acc = function
@@ -300,10 +301,15 @@ let runuc text
           (fun f b _ acc -> b :: (String.length f - b) :: acc)
         |> List.rev |> tupelize
       in
-      let indexes =
-        List.filter prelims ~f:(fun (x, _) -> x >= halflen) |> detupelize
+      let l, r =
+        List.split_while prelims ~f:(fun (x, _) -> x >= halflen + ecl)
+        (* |> detupelize *)
       in
+      let indexes = List.append l (List.take r 1) |> detupelize in
+      print_endline (List.to_string ~f:string_of_int (detupelize prelims));
       print_endline (List.to_string ~f:string_of_int indexes);
+      print_endline (List.to_string ~f:string_of_int (detupelize l));
+      print_endline (List.to_string ~f:string_of_int (detupelize r));
       print_endline "-----";
       indexes |> loopandprint (List.length indexes / 2 * cycles)
     end
@@ -319,7 +325,9 @@ let runuc text
           (fun _ b pos acc -> b :: pos :: acc)
         |> List.rev |> tupelize
       in
-      let p, q = List.split_while prelims ~f:(fun (x, y) -> x + y < halflen) in
+      let p, q =
+        List.split_while prelims ~f:(fun (x, y) -> x + y < halflen - ecl)
+      in
       let r = List.take q 1 in
       print_endline (List.to_string ~f:string_of_int (detupelize p));
       print_endline (List.to_string ~f:string_of_int (detupelize r));
