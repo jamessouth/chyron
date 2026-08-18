@@ -232,8 +232,8 @@ let runuc text
           let str = String.concat lt in
           (*bts is constant if wid > textlen*)
           let bts = bytesofutfchars str wid in
-          print_endline (List.to_string ~f:(fun x -> x) lt);
-          print_endline (string_of_int bts);
+          (* print_endline (List.to_string ~f:(fun x -> x) lt);
+          print_endline (string_of_int bts); *)
           let l, r = List.split_n lt (sptfn lt) in
           loop (String.length (String.concat l) + pos) (accfn str bts pos acc) r
     in
@@ -366,29 +366,61 @@ let runuc text
       indexes |> loopandprint (wordcount * cycles)
   | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
       let prelims =
-        ucinds
-          (List.rev (listofutfchars ftstr))
-          width
-          (fun _ -> 1)
-          (fun _ b pos acc -> b :: pos :: acc)
-      in
-      let _, r = List.split_n prelims 2 in
-      let _, r2 = List.split_n (List.rev r) 2 in
-      let indexes =
-        r2 |> tupelize |> List.rev |> detupelize |> List.rev_append prelims
-      in
-      loopandprint (List.length indexes / 2 * cycles) indexes
-  | Right, Char, Wrap, (Greater | Equal | Less) ->
-      let indexes =
         List.filter
           (ucinds
              (List.rev (listofutfchars ftstr))
              width
              (fun _ -> 1)
              (fun _ b pos acc -> b :: pos :: acc)
-          |> List.rev |> tupelize |> List.rev)
-          ~f:(fun (a, _) -> a > lenminuswidth - halflen)
+          |> tupelize)
+          ~f:(fun (_, b) -> b < succ lenminuswidth)
         |> detupelize
+      in
+      let _, r = List.split_n prelims 2 in
+      let _, r2 = List.split_n (List.rev r) 2 in
+      let indexes =
+        r2 |> tupelize |> List.rev |> detupelize |> List.rev_append prelims
+      in
+      print_endline (List.to_string ~f:string_of_int prelims);
+      print_endline "^^^";
+      loopandprint (List.length indexes / 2 * cycles) indexes
+  | Right, Char, Wrap, (Greater | Equal | Less) ->
+      let a =
+        ucinds
+          (List.rev (listofutfchars ftstr))
+          width
+          (fun _ -> 1)
+          (fun _ b pos acc -> b :: pos :: acc)
+      in
+
+      print_endline (List.to_string ~f:string_of_int a);
+      let b =
+        List.rev
+          (tupelize
+             (List.rev
+                (detupelize
+                   (List.filter (tupelize a) ~f:(fun (_, b) ->
+                        b < succ lenminuswidth)))))
+      in
+      print_endline (List.to_string ~f:string_of_int (detupelize b));
+      print_endline "-----";
+      let indexes =
+        [ 0 ]
+        (* List.filter
+          (List.rev
+             (
+                
+                ))
+          ~f:(fun (a, _) -> a > lenminuswidth - halflen) *)
+        (* List.filter
+          (ucinds
+             (List.rev (listofutfchars ftstr))
+             width
+             (fun _ -> 1)
+             (fun _ b pos acc -> b :: pos :: acc)
+          |> List.rev |> tupelize |> List.rev)
+          ~f:(fun (a, _) -> a > lenminuswidth - halflen) *)
+        (* |> detupelize *)
       in
       loopandprint (List.length indexes / 2 * cycles) indexes
   | Right, Char, Reset, Greater ->
