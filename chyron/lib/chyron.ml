@@ -290,15 +290,13 @@ let runuc text
       detupelize z |> loopandprint (List.length z * cycles)
     end
   | Right, Word, Wrap, (Greater | Equal | Less) ->
-      let prelims =
+      let indexes =
         ucinds charlist wordsplitfn (fun str bts _ acc ->
             bts :: (String.length str - bts) :: acc)
       in
-      let indexes = prelims in
       indexes |> loopandprint (wordcount * cycles)
   | Left, Word, Wrap, (Greater | Equal | Less) ->
-      let prelims = ucinds (List.rev charlist) wordsplitfn accmfn in
-      let indexes = prelims in
+      let indexes = ucinds (List.rev charlist) wordsplitfn accmfn in
       indexes |> loopandprint (wordcount * cycles)
   | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
       let prelims =
@@ -314,31 +312,28 @@ let runuc text
       in
       loopandprint (List.length indexes / 2 * cycles) indexes
   | Right, Char, Wrap, (Greater | Equal | Less) ->
-      let prelims = ucinds (List.rev charlist) charsplitfn accmfn in
+      let prelims =
+        ucinds (List.rev charlist) charsplitfn (fun _ bts pos acc ->
+            pos :: bts :: acc)
+      in
       let indexes =
         detupelize
-          (List.rev
-             (tupelize
-                (List.rev
-                   (detupelize
-                      (List.filter
-                         (tupelize (List.rev prelims))
-                         ~f:(fun (_, b) ->
-                           b > lenminuswidth - halflen && b < succ lenminuswidth))))))
+          (List.filter
+             (tupelize (List.rev prelims))
+             ~f:(fun (a, _) ->
+               a > lenminuswidth - halflen && a < succ lenminuswidth))
       in
       loopandprint (List.length indexes / 2 * cycles) indexes
   | Right, Char, Reset, Greater ->
-      let prelims = ucinds (List.rev charlist) charsplitfn accmfn in
+      let prelims =
+        ucinds (List.rev charlist) charsplitfn (fun _ bts pos acc ->
+            pos :: bts :: acc)
+      in
       let indexes =
         detupelize
-          (List.rev
-             (tupelize
-                (List.rev
-                   (detupelize
-                      (List.filter
-                         (tupelize (List.rev prelims))
-                         ~f:(fun (_, b) ->
-                           b >= halflen + ecl && b < succ lenminuswidth))))))
+          (List.filter
+             (tupelize (List.rev prelims))
+             ~f:(fun (a, _) -> a >= halflen + ecl && a < succ lenminuswidth))
       in
       loopandprint (List.length indexes / 2 * cycles) indexes
   | Left, Char, Reset, Greater ->
