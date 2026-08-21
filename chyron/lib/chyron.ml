@@ -197,9 +197,7 @@ let runuc text
       loop ticks 0
   in
   let totallen = Bytes.length finaltext in
-  let lenminuswidth =
-    totallen - width - (bytesofutfchars revstr width - width)
-  in
+  let lenminuswidth = totallen - bytesofutfchars revstr width in
   let halflen = totallen asr 1 in
   (* let predlentext = pred totallen in *)
   let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
@@ -299,16 +297,11 @@ let runuc text
       let indexes = ucinds (List.rev charlist) wordsplitfn accmfn in
       indexes |> loopandprint (wordcount * cycles)
   | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
-      let prelims =
-        List.filter
-          (ucinds (List.rev charlist) charsplitfn accmfn |> List.rev |> tupelize)
-          ~f:(fun (_, b) -> b < succ lenminuswidth)
-        |> detupelize
-      in
-      let _, r = List.split_n prelims 2 in
-      let _, r2 = List.split_n (List.rev r) 2 in
+      let prelims = ucinds (List.rev charlist) charsplitfn accmfn |> tupelize in
+      let l, r = List.split_while prelims ~f:(fun (a, b) -> a + b < totallen) in
       let indexes =
-        r2 |> tupelize |> List.rev |> detupelize |> List.rev_append prelims
+        List.append (List.append l (List.take r 1)) (List.rev (List.drop l 1))
+        |> detupelize
       in
       loopandprint (List.length indexes / 2 * cycles) indexes
   | Right, Char, Wrap, (Greater | Equal | Less) ->
