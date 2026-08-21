@@ -224,9 +224,9 @@ let runuc text
     loop [] lt
   in
 
-  let ucinds charlist sptfn accfn =
+  let ucinds rev charlist sptfn accfn =
     let rec loop pos acc = function
-      | [] -> List.rev acc
+      | [] -> if rev then List.rev acc else acc
       | h :: t ->
           let lt = h :: t in
           let str = String.concat lt in
@@ -250,54 +250,60 @@ let runuc text
   with
   | Bounce, Word, (Wrap | Reset), Greater -> begin
       let rh =
-        ucinds charlist wordsplitfn (fun str bts _ acc ->
+        ucinds true charlist wordsplitfn (fun str bts _ acc ->
             bts :: (String.length str - bts) :: acc)
         |> tupelize
       in
-      let lh = ucinds (List.rev charlist) wordsplitfn accmfn |> tupelize in
+      let lh = ucinds true (List.rev charlist) wordsplitfn accmfn |> tupelize in
       let fltr =
-        List.filteri (List.append lh rh) ~f:(fun i (x, _) ->
-            (x > 0 || i = 0) && x <= lenminuswidth)
+        List.filteri (List.append lh rh) ~f:(fun i (a, _) ->
+            (a > 0 || i = 0) && a <= lenminuswidth)
       in
       let indexes =
         detupelize
           (List.remove_consecutive_duplicates fltr ~equal:(fun (a, _) (b, _) ->
                a = b))
       in
+      print_endline (List.to_string ~f:string_of_int (detupelize rh));
+      print_endline (List.to_string ~f:string_of_int (detupelize lh));
+      print_endline (List.to_string ~f:string_of_int indexes);
       loopandprint (List.length indexes / 2 * cycles) indexes
     end
   | Right, Word, Reset, Greater -> begin
       let prelims =
-        ucinds charlist wordsplitfn (fun str bts _ acc ->
+        ucinds true charlist wordsplitfn (fun str bts _ acc ->
             bts :: (String.length str - bts) :: acc)
         |> tupelize
       in
       let l, r =
-        List.split_while prelims ~f:(fun (x, _) -> x >= halflen + ecl)
+        List.split_while prelims ~f:(fun (a, _) -> a >= halflen + ecl)
       in
       let indexes = List.append l (List.take r 1) |> detupelize in
       indexes |> loopandprint (List.length indexes / 2 * cycles)
     end
   | Left, Word, Reset, Greater -> begin
-      let prelims = ucinds (List.rev charlist) wordsplitfn accmfn |> tupelize in
-      let p, q =
-        List.split_while prelims ~f:(fun (x, y) -> x + y < halflen - ecl)
+      let prelims =
+        ucinds true (List.rev charlist) wordsplitfn accmfn |> tupelize
       in
-      let r = List.take q 1 in
-      let z = List.append p r in
-      detupelize z |> loopandprint (List.length z * cycles)
+      let l, r =
+        List.split_while prelims ~f:(fun (a, b) -> a + b < halflen - ecl)
+      in
+      let indexes = detupelize (List.append l (List.take r 1)) in
+      indexes |> loopandprint (List.length indexes * cycles)
     end
   | Right, Word, Wrap, (Greater | Equal | Less) ->
       let indexes =
-        ucinds charlist wordsplitfn (fun str bts _ acc ->
+        ucinds true charlist wordsplitfn (fun str bts _ acc ->
             bts :: (String.length str - bts) :: acc)
       in
       indexes |> loopandprint (wordcount * cycles)
   | Left, Word, Wrap, (Greater | Equal | Less) ->
-      let indexes = ucinds (List.rev charlist) wordsplitfn accmfn in
+      let indexes = ucinds true (List.rev charlist) wordsplitfn accmfn in
       indexes |> loopandprint (wordcount * cycles)
   | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
-      let prelims = ucinds (List.rev charlist) charsplitfn accmfn |> tupelize in
+      let prelims =
+        ucinds true (List.rev charlist) charsplitfn accmfn |> tupelize
+      in
       let l, r = List.split_while prelims ~f:(fun (a, b) -> a + b < totallen) in
       let indexes =
         List.append (List.append l (List.take r 1)) (List.rev (List.drop l 1))
@@ -306,33 +312,32 @@ let runuc text
       loopandprint (List.length indexes / 2 * cycles) indexes
   | Right, Char, Wrap, (Greater | Equal | Less) ->
       let prelims =
-        ucinds (List.rev charlist) charsplitfn (fun _ bts pos acc ->
+        ucinds false (List.rev charlist) charsplitfn (fun _ bts pos acc ->
             pos :: bts :: acc)
+        |> tupelize
       in
       let indexes =
         detupelize
-          (List.filter
-             (tupelize (List.rev prelims))
-             ~f:(fun (a, _) ->
+          (List.filter prelims ~f:(fun (a, _) ->
                a > lenminuswidth - halflen && a < succ lenminuswidth))
       in
       loopandprint (List.length indexes / 2 * cycles) indexes
   | Right, Char, Reset, Greater ->
       let prelims =
-        ucinds (List.rev charlist) charsplitfn (fun _ bts pos acc ->
+        ucinds false (List.rev charlist) charsplitfn (fun _ bts pos acc ->
             pos :: bts :: acc)
+        |> tupelize
       in
       let indexes =
         detupelize
-          (List.filter
-             (tupelize (List.rev prelims))
-             ~f:(fun (a, _) -> a >= halflen + ecl && a < succ lenminuswidth))
+          (List.filter prelims ~f:(fun (a, _) ->
+               a >= halflen + ecl && a < succ lenminuswidth))
       in
       loopandprint (List.length indexes / 2 * cycles) indexes
   | Left, Char, Reset, Greater ->
       let indexes =
         List.filter
-          (ucinds charlist charsplitfn accmfn |> List.rev |> tupelize)
+          (ucinds true (List.rev charlist) charsplitfn accmfn |> tupelize)
           ~f:(fun (a, b) -> a + b <= halflen - ecl)
         |> detupelize
       in
@@ -340,14 +345,14 @@ let runuc text
   | Left, Char, Wrap, (Greater | Equal | Less) ->
       let indexes =
         List.filter
-          (ucinds charlist charsplitfn accmfn |> List.rev |> tupelize)
+          (ucinds true (List.rev charlist) charsplitfn accmfn |> tupelize)
           ~f:(fun (a, _) -> a < halflen)
         |> detupelize
       in
       loopandprint (List.length indexes / 2 * cycles) indexes
   | Bounce, Word, (Wrap | Reset), (Equal | Less)
   | (Left | Right), (Char | Word), Reset, (Equal | Less) ->
-      loopandprint (cycles lsl 1) [ 0; lenminuswidth ]
+      loopandprint (cycles lsl 1) [ 0; width; lenminuswidth; width ]
   end;
   match terminator with
   | Newline -> ()
