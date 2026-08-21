@@ -208,14 +208,6 @@ let runuc text
   print_endline (string_of_int halflen);
   print_endline (string_of_int (totallen - bytesofutfchars revstr width));
 
-  let tupelize lt =
-    let rec loop acc = function
-      | h :: n :: t -> loop ((h, n) :: acc) t
-      | _ -> List.rev acc
-    in
-    loop [] lt
-  in
-
   let detupelize lt =
     let rec loop acc = function
       | (a, b) :: t -> loop (b :: a :: acc) t
@@ -243,7 +235,7 @@ let runuc text
   in
   let charsplitfn _ = 1 in
 
-  let accmfn _ bts pos acc = bts :: pos :: acc in
+  let accmfn _ bts pos acc = (pos, bts) :: acc in
 
   begin match
     (direction, scroll, mode, Ordering.of_int (compare text_len width))
@@ -251,10 +243,9 @@ let runuc text
   | Bounce, Word, (Wrap | Reset), Greater -> begin
       let rh =
         ucinds true charlist wordsplitfn (fun str bts _ acc ->
-            bts :: (String.length str - bts) :: acc)
-        |> tupelize
+            (String.length str - bts, bts) :: acc)
       in
-      let lh = ucinds true (List.rev charlist) wordsplitfn accmfn |> tupelize in
+      let lh = ucinds true (List.rev charlist) wordsplitfn accmfn in
       let fltr =
         List.filteri (List.append lh rh) ~f:(fun i (a, _) ->
             (a > 0 || i = 0) && a <= lenminuswidth)
@@ -272,8 +263,7 @@ let runuc text
   | Right, Word, Reset, Greater -> begin
       let prelims =
         ucinds true charlist wordsplitfn (fun str bts _ acc ->
-            bts :: (String.length str - bts) :: acc)
-        |> tupelize
+            (String.length str - bts, bts) :: acc)
       in
       let l, r =
         List.split_while prelims ~f:(fun (a, _) -> a >= halflen + ecl)
@@ -282,14 +272,12 @@ let runuc text
       indexes |> loopandprint (List.length indexes / 2 * cycles)
     end
   | Left, Word, Reset, Greater -> begin
-      let prelims =
-        ucinds true (List.rev charlist) wordsplitfn accmfn |> tupelize
-      in
+      let prelims = ucinds true (List.rev charlist) wordsplitfn accmfn in
       let l, r =
         List.split_while prelims ~f:(fun (a, b) -> a + b < halflen - ecl)
       in
       let indexes = detupelize (List.append l (List.take r 1)) in
-      indexes |> loopandprint (List.length indexes * cycles)
+      indexes |> loopandprint (List.length indexes / 2 * cycles)
     end
   | Right, Word, Wrap, (Greater | Equal | Less) ->
       let indexes =
@@ -299,11 +287,9 @@ let runuc text
       indexes |> loopandprint (wordcount * cycles)
   | Left, Word, Wrap, (Greater | Equal | Less) ->
       let indexes = ucinds true (List.rev charlist) wordsplitfn accmfn in
-      indexes |> loopandprint (wordcount * cycles)
+      indexes |> detupelize |> loopandprint (wordcount * cycles)
   | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
-      let prelims =
-        ucinds true (List.rev charlist) charsplitfn accmfn |> tupelize
-      in
+      let prelims = ucinds true (List.rev charlist) charsplitfn accmfn in
       let l, r = List.split_while prelims ~f:(fun (a, b) -> a + b < totallen) in
       let indexes =
         List.append (List.append l (List.take r 1)) (List.rev (List.drop l 1))
@@ -313,8 +299,7 @@ let runuc text
   | Right, Char, Wrap, (Greater | Equal | Less) ->
       let prelims =
         ucinds false (List.rev charlist) charsplitfn (fun _ bts pos acc ->
-            pos :: bts :: acc)
-        |> tupelize
+            (pos, bts) :: acc)
       in
       let indexes =
         detupelize
@@ -325,8 +310,7 @@ let runuc text
   | Right, Char, Reset, Greater ->
       let prelims =
         ucinds false (List.rev charlist) charsplitfn (fun _ bts pos acc ->
-            pos :: bts :: acc)
-        |> tupelize
+            (pos, bts) :: acc)
       in
       let indexes =
         detupelize
@@ -337,7 +321,7 @@ let runuc text
   | Left, Char, Reset, Greater ->
       let indexes =
         List.filter
-          (ucinds true (List.rev charlist) charsplitfn accmfn |> tupelize)
+          (ucinds true (List.rev charlist) charsplitfn accmfn)
           ~f:(fun (a, b) -> a + b <= halflen - ecl)
         |> detupelize
       in
@@ -345,7 +329,7 @@ let runuc text
   | Left, Char, Wrap, (Greater | Equal | Less) ->
       let indexes =
         List.filter
-          (ucinds true (List.rev charlist) charsplitfn accmfn |> tupelize)
+          (ucinds true (List.rev charlist) charsplitfn accmfn)
           ~f:(fun (a, _) -> a < halflen)
         |> detupelize
       in
