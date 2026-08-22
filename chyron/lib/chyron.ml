@@ -111,8 +111,11 @@ let runuc text
       (fun count _ -> succ count)
       0 joined_text
   in
-  print_endline ("textlen " ^ string_of_int text_len);
   let width_minus_text_len = width - text_len in
+  print_endline ("jndtext " ^ joined_text);
+  print_endline ("jndtextlen " ^ string_of_int (String.length joined_text));
+  print_endline ("textlen " ^ string_of_int text_len);
+  print_endline ("textlen " ^ string_of_int width_minus_text_len);
   let ecl =
     if Direction.equal direction Bounce then Int.max 0 width_minus_text_len
     else
@@ -241,6 +244,7 @@ let runuc text
     (direction, scroll, mode, Ordering.of_int (compare text_len width))
   with
   | Bounce, Word, (Wrap | Reset), Greater -> begin
+      print_endline "hi";
       let rh =
         ucinds true charlist wordsplitfn (fun str bts _ acc ->
             (String.length str - bts, bts) :: acc)
@@ -297,10 +301,7 @@ let runuc text
       in
       loopandprint (List.length indexes / 2 * cycles) indexes
   | Right, Char, Wrap, (Greater | Equal | Less) ->
-      let prelims =
-        ucinds false (List.rev charlist) charsplitfn (fun _ bts pos acc ->
-            (pos, bts) :: acc)
-      in
+      let prelims = ucinds false (List.rev charlist) charsplitfn accmfn in
       let indexes =
         detupelize
           (List.filter prelims ~f:(fun (a, _) ->
@@ -308,10 +309,7 @@ let runuc text
       in
       loopandprint (List.length indexes / 2 * cycles) indexes
   | Right, Char, Reset, Greater ->
-      let prelims =
-        ucinds false (List.rev charlist) charsplitfn (fun _ bts pos acc ->
-            (pos, bts) :: acc)
-      in
+      let prelims = ucinds false (List.rev charlist) charsplitfn accmfn in
       let indexes =
         detupelize
           (List.filter prelims ~f:(fun (a, _) ->
@@ -334,8 +332,19 @@ let runuc text
         |> detupelize
       in
       loopandprint (List.length indexes / 2 * cycles) indexes
-  | Bounce, Word, (Wrap | Reset), (Equal | Less)
-  | (Left | Right), (Char | Word), Reset, (Equal | Less) ->
+  | Bounce, Word, (Wrap | Reset), (Equal | Less) ->
+      loopandprint (cycles lsl 1)
+        [
+          0;
+          String.length joined_text + ecl;
+          lenminuswidth;
+          String.length joined_text + ecl;
+        ]
+  | Right, (Char | Word), Reset, (Equal | Less) ->
+      print_endline "lo";
+      let adj = String.length joined_text - text_len in
+      loopandprint (cycles lsl 1) [ adj; width; lenminuswidth + adj; width ]
+  | Left, (Char | Word), Reset, (Equal | Less) ->
       loopandprint (cycles lsl 1) [ 0; width; lenminuswidth; width ]
   end;
   match terminator with
