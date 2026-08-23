@@ -270,7 +270,7 @@ let runuc text
             (String.length str - bts, bts) :: acc)
       in
       let l, r =
-        List.split_while prelims ~f:(fun (a, _) -> a >= halflen + ecl)
+        List.split_while prelims ~f:(fun (a, _) -> a > halflen + ecl)
       in
       let indexes = List.append l (List.take r 1) |> detupelize in
       indexes |> loopandprint (List.length indexes / 2 * cycles)
@@ -340,12 +340,14 @@ let runuc text
           lenminuswidth;
           String.length joined_text + ecl;
         ]
-  | Right, (Char | Word), Reset, (Equal | Less) ->
-      print_endline "lo";
-      let adj = String.length joined_text - text_len in
-      loopandprint (cycles lsl 1) [ adj; width; lenminuswidth + adj; width ]
-  | Left, (Char | Word), Reset, (Equal | Less) ->
-      loopandprint (cycles lsl 1) [ 0; width; lenminuswidth; width ]
+  | Right, (Char | Word), Reset, Equal ->
+      loopandprint (cycles lsl 1) [ ecl; String.length joined_text ]
+  | Right, (Char | Word), Reset, Less ->
+      loopandprint (cycles lsl 1) [ 0; String.length joined_text + ecl ]
+  | Left, (Char | Word), Reset, Equal ->
+      loopandprint (cycles lsl 1) [ 0; String.length joined_text ]
+  | Left, (Char | Word), Reset, Less ->
+      loopandprint (cycles lsl 1) [ 0; String.length joined_text + ecl ]
   end;
   match terminator with
   | Newline -> ()
