@@ -77,260 +77,6 @@ type cliflags = {
   width : int;
 }
 
-let runuc text
-    {
-      cycles;
-      direction;
-      endcap_char;
-      endcap_len;
-      rest;
-      mode;
-      prefix;
-      scroll;
-      sleep;
-      suffix;
-      terminator;
-      width;
-    } =
-  let joined_text = String.concat ~sep:" " text in
-  let jointextlen = String.length joined_text in
-  let text_len =
-    Uuseg_string.fold_utf_8 `Grapheme_cluster
-      (fun count _ -> succ count)
-      0 joined_text
-  in
-  let width_minus_text_len = width - text_len in
-  print_endline ("jndtext " ^ joined_text);
-  print_endline ("jndtextlen " ^ string_of_int (String.length joined_text));
-  print_endline ("textlen " ^ string_of_int text_len);
-  print_endline ("textlen " ^ string_of_int width_minus_text_len);
-  let ecl =
-    if Direction.equal direction Bounce then Int.max 0 width_minus_text_len
-    else
-      Int.clamp_exn
-        (Int.max endcap_len width_minus_text_len)
-        ~min:1 ~max:(pred width)
-  in
-  let ecp = Bytes.make ecl endcap_char in
-  let joined_bytes = Bytes.of_string joined_text in
-  let bounce = Stdlib.Bytes.cat (Stdlib.Bytes.cat ecp joined_bytes) ecp in
-  let finaltext, totallen =
-    match direction with
-    | Bounce -> (bounce, ecl + ecl + text_len)
-    | Left ->
-        (Stdlib.Bytes.cat joined_bytes bounce, ecl + ecl + text_len + text_len)
-    | Right ->
-        (Stdlib.Bytes.cat bounce joined_bytes, ecl + ecl + text_len + text_len)
-  in
-
-  let lastchar =
-    match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
-  in
-  let pfix = Bytes.of_string prefix in
-  let plen = Bytes.length pfix in
-  let sfix = Bytes.of_string suffix in
-  let slen = Bytes.length sfix in
-  let print pos wid =
-    print_endline (string_of_int pos ^ " " ^ string_of_int wid);
-    Externs.unsafe_output_bytes stdout pfix 0 plen;
-    Externs.unsafe_output_bytes stdout finaltext pos wid;
-    Externs.unsafe_output_bytes stdout sfix 0 slen;
-    Externs.unsafe_output_char stdout lastchar;
-    Externs.unsafe_flush stdout
-  in
-  let charlist =
-    Uuseg_string.fold_utf_8 `Grapheme_cluster
-      (fun acc char -> char :: acc)
-      []
-      (Bytes.to_string finaltext)
-  in
-
-  let loopandprint ticks al =
-    let flatlist =
-      let rec loop acc = function
-        | (a, b) :: t -> loop (b :: a :: acc) t
-        | _ -> List.rev acc
-      in
-      loop [] al
-    in
-
-    print_endline (List.to_string ~f:string_of_int flatlist);
-    print_endline (string_of_int ticks);
-    let indexes = Array.of_list flatlist in
-    (* Array.iter indexes ~f:(fun s -> print_endline (string_of_int s)); *)
-    let arrlen = Array.length indexes - 2 in
-    print_endline ("arrlen " ^ string_of_int arrlen);
-    if rest = 0 then
-      let rec loop ticks idx =
-        print_endline ("ticks " ^ string_of_int ticks);
-        print_endline ("idx " ^ string_of_int idx);
-        if ticks <= 0 then ()
-        else begin
-          print
-            (Array.unsafe_get indexes idx)
-            (Array.unsafe_get indexes (idx + 1));
-          Externs.caml_clock_nanosleep sleep;
-          let nidx = if idx = arrlen then 0 else succ idx + 1 in
-          (loop [@tailcall]) (pred ticks) nidx
-        end
-      in
-      loop ticks 0
-    else
-      let rec minmax goal f = function
-        | i :: lt -> minmax (if f i goal then i else goal) f lt
-        | _ -> goal
-      in
-      let minidx = minmax 1024 ( < ) flatlist in
-      let maxidx = minmax 0 ( > ) flatlist in
-      let rec loop ticks idx =
-        if ticks <= 0 then ()
-        else begin
-          let pos = Array.unsafe_get indexes idx in
-          (* print_string (string_of_int pos ^ " "); *)
-          print pos width;
-          Externs.caml_clock_nanosleep
-            (if pos = minidx || pos = maxidx then rest else sleep);
-          let nidx = if idx = arrlen then 0 else succ idx in
-          (loop [@tailcall]) (pred ticks) nidx
-        end
-      in
-      loop ticks 0
-  in
-
-  let bytesofutfchars str visualchars =
-    let bytelen, _ =
-      Uuseg_string.fold_utf_8 `Grapheme_cluster
-        (fun (bytecount, charcount) char ->
-          if charcount >= visualchars then (bytecount, charcount)
-          else (bytecount + String.length char, succ charcount))
-        (0, 0) str
-    in
-    bytelen
-  in
-
-  let totallen = Bytes.length finaltext in
-  let lenminuswidth =
-    totallen - bytesofutfchars (String.concat charlist) width
-  in
-  let halflen = totallen asr 1 in
-  let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
-
-  print_endline (string_of_int totallen);
-  print_endline (string_of_int lenminuswidth);
-  print_endline (string_of_int halflen);
-
-  let ucinds rev charlist sptfn accfn =
-    let rec loop pos acc = function
-      | [] -> if rev then List.rev acc else acc
-      | h :: t ->
-          let lt = h :: t in
-          let str = String.concat lt in
-          let bts = bytesofutfchars str width in
-          let l, r = List.split_n lt (sptfn lt) in
-          loop (String.length (String.concat l) + pos) (accfn str bts pos acc) r
-    in
-    loop 0 [] charlist
-  in
-
-  let wordsplitfn chr =
-    succ (List.length (List.take_while chr ~f:(fun s -> String.( <> ) s " ")))
-  in
-  let charsplitfn _ = 1 in
-
-  let accmfn _ bts pos acc = (pos, bts) :: acc in
-  let rwaccmfn str bts _ acc = (String.length str - bts, bts) :: acc in
-
-  begin match
-    (direction, scroll, mode, Ordering.of_int (compare text_len width))
-  with
-  | Bounce, Word, (Wrap | Reset), Greater -> begin
-      print_endline "hi";
-      let rh = ucinds true charlist wordsplitfn rwaccmfn in
-      let lh = ucinds true (List.rev charlist) wordsplitfn accmfn in
-      let fltr =
-        List.filteri (List.append lh rh) ~f:(fun i (a, _) ->
-            (a > 0 || i = 0) && a <= lenminuswidth)
-      in
-      let indexes =
-        List.remove_consecutive_duplicates fltr ~equal:(fun (a, _) (b, _) ->
-            a = b)
-      in
-      (* print_endline (List.to_string ~f:string_of_int indexes); *)
-      loopandprint (List.length indexes * cycles) indexes
-    end
-  | Right, Word, Reset, Greater -> begin
-      let prelims = ucinds true charlist wordsplitfn rwaccmfn in
-      let l, r =
-        List.split_while prelims ~f:(fun (a, _) -> a > halflen + ecl)
-      in
-      let indexes = List.append l (List.take r 1) in
-      indexes |> loopandprint (List.length indexes * cycles)
-    end
-  | Left, Word, Reset, Greater -> begin
-      let prelims = ucinds true (List.rev charlist) wordsplitfn accmfn in
-      let l, r =
-        List.split_while prelims ~f:(fun (a, b) -> a + b < halflen - ecl)
-      in
-      let indexes = List.append l (List.take r 1) in
-      indexes |> loopandprint (List.length indexes * cycles)
-    end
-  | Right, Word, Wrap, (Greater | Equal | Less) ->
-      let indexes = ucinds true charlist wordsplitfn rwaccmfn in
-      indexes |> loopandprint (wordcount * cycles)
-  | Left, Word, Wrap, (Greater | Equal | Less) ->
-      let indexes = ucinds true (List.rev charlist) wordsplitfn accmfn in
-      indexes |> loopandprint (wordcount * cycles)
-  | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
-      let prelims = ucinds true (List.rev charlist) charsplitfn accmfn in
-      let l, r = List.split_while prelims ~f:(fun (a, b) -> a + b < totallen) in
-      let indexes =
-        List.append (List.append l (List.take r 1)) (List.rev (List.drop l 1))
-      in
-      loopandprint (List.length indexes * cycles) indexes
-  | Right, Char, Wrap, (Greater | Equal | Less) ->
-      let prelims = ucinds false (List.rev charlist) charsplitfn accmfn in
-      let indexes =
-        List.filter prelims ~f:(fun (a, _) ->
-            a > lenminuswidth - halflen && a < succ lenminuswidth)
-      in
-      loopandprint (List.length indexes * cycles) indexes
-  | Right, Char, Reset, Greater ->
-      let prelims = ucinds false (List.rev charlist) charsplitfn accmfn in
-      let indexes =
-        List.filter prelims ~f:(fun (a, _) ->
-            a >= halflen + ecl && a < succ lenminuswidth)
-      in
-      loopandprint (List.length indexes * cycles) indexes
-  | Left, Char, Reset, Greater ->
-      let indexes =
-        List.filter
-          (ucinds true (List.rev charlist) charsplitfn accmfn)
-          ~f:(fun (a, b) -> a + b <= halflen - ecl)
-      in
-      loopandprint (List.length indexes * cycles) indexes
-  | Left, Char, Wrap, (Greater | Equal | Less) ->
-      let indexes =
-        List.filter
-          (ucinds true (List.rev charlist) charsplitfn accmfn)
-          ~f:(fun (a, _) -> a < halflen)
-      in
-      loopandprint (List.length indexes * cycles) indexes
-  | Bounce, Word, (Wrap | Reset), (Equal | Less) ->
-      loopandprint (cycles lsl 1)
-        [ (0, jointextlen + ecl); (lenminuswidth, jointextlen + ecl) ]
-  | Right, (Char | Word), Reset, Equal ->
-      loopandprint (cycles lsl 1) [ (ecl, jointextlen) ]
-  | (Left | Right), (Char | Word), Reset, Less ->
-      loopandprint (cycles lsl 1) [ (0, jointextlen + ecl) ]
-  | Left, (Char | Word), Reset, Equal ->
-      loopandprint (cycles lsl 1) [ (0, jointextlen) ]
-  end;
-  match terminator with
-  | Newline -> ()
-  | _ ->
-      Externs.unsafe_output_char stdout '\n';
-      Externs.unsafe_flush stdout
-
 let run text
     {
       cycles;
@@ -346,89 +92,68 @@ let run text
       terminator;
       width;
     } =
-  let rec textlen acc = function
-    | [] -> acc
-    | str :: rest -> (textlen [@tailcall]) (succ acc + String.length str) rest
+  let vclen_charlist str =
+    let tl, cl =
+      Uuseg_string.fold_utf_8 `Grapheme_cluster
+        (fun (tlacc, clacc) char -> (succ tlacc, char :: clacc))
+        (0, []) str
+    in
+    (tl, cl)
   in
-  let text_len = textlen (-1) text in
-  print_endline ("textlen" ^ string_of_int text_len);
-  let width_minus_text_len = width - text_len in
+  let joined_text = String.concat ~sep:" " text in
+  let jointextlen = String.length joined_text in
+  let visual_chars, _ = vclen_charlist joined_text in
+  let width_minus_visual_chars = width - visual_chars in
   let ecl =
-    if Direction.equal direction Bounce then Int.max 0 width_minus_text_len
+    if Direction.equal direction Bounce then Int.max 0 width_minus_visual_chars
     else
       Int.clamp_exn
-        (Int.max endcap_len width_minus_text_len)
+        (Int.max endcap_len width_minus_visual_chars)
         ~min:1 ~max:(pred width)
   in
-  let half_len = text_len + ecl in
-  let total_len =
+  let ecp = Bytes.make ecl endcap_char in
+  let joined_bytes = Bytes.of_string joined_text in
+  let bounce = Stdlib.Bytes.cat (Stdlib.Bytes.cat ecp joined_bytes) ecp in
+  let finaltext =
     match direction with
-    | Bounce -> ecl + half_len
-    | Left | Right -> half_len lsl 1
+    | Bounce -> bounce
+    | Left -> Stdlib.Bytes.cat joined_bytes bounce
+    | Right -> Stdlib.Bytes.cat bounce joined_bytes
   in
-  let rec blittext ~dst pos = function
-    | [] -> ()
-    | s :: ts -> (
-        let len = String.length s in
-        let poslen = pos + len in
-        Bytes.From_string.blit ~src:s ~src_pos:0 ~dst ~dst_pos:pos ~len;
-        match ts with
-        | [] -> ()
-        | _ ->
-            Bytes.set dst poslen ' ';
-            (blittext [@tailcall]) ~dst (succ poslen) ts)
-  in
-  let finaltext = Bytes.create total_len in
-  begin match direction with
-  | Bounce ->
-      Bytes.fill finaltext ~pos:0 ~len:ecl endcap_char;
-      blittext ~dst:finaltext ecl text;
-      Bytes.fill finaltext ~pos:(ecl + text_len) ~len:ecl endcap_char
-  | Left ->
-      blittext ~dst:finaltext 0 text;
-      Bytes.fill finaltext ~pos:text_len ~len:ecl endcap_char;
-      Bytes.blit ~src:finaltext ~src_pos:0 ~dst:finaltext ~dst_pos:half_len
-        ~len:half_len
-  | Right ->
-      Bytes.fill finaltext ~pos:0 ~len:ecl endcap_char;
-      blittext ~dst:finaltext ecl text;
-      Bytes.blit ~src:finaltext ~src_pos:0 ~dst:finaltext ~dst_pos:half_len
-        ~len:half_len
-  end;
   let lastchar =
     match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
-  in
-  let rec wordbounds th idx list f adj =
-    if idx = th then list
-    else if
-      Char.( = ) (Bytes.unsafe_get finaltext idx) ' '
-      && Char.( <> ) (Bytes.unsafe_get finaltext (succ idx)) ' '
-    then (wordbounds [@tailcall]) th (f idx) ((idx - adj) :: list) f adj
-    else (wordbounds [@tailcall]) th (f idx) list f adj
   in
   let pfix = Bytes.of_string prefix in
   let plen = Bytes.length pfix in
   let sfix = Bytes.of_string suffix in
   let slen = Bytes.length sfix in
-  let print pos =
+  let print pos wid =
     Externs.unsafe_output_bytes stdout pfix 0 plen;
-    Externs.unsafe_output_bytes stdout finaltext pos width;
+    Externs.unsafe_output_bytes stdout finaltext pos wid;
     Externs.unsafe_output_bytes stdout sfix 0 slen;
     Externs.unsafe_output_char stdout lastchar;
     Externs.unsafe_flush stdout
   in
-  let loopandprint ticks l =
-    print_endline (List.to_string ~f:string_of_int l);
-    print_endline (Bytes.to_string finaltext ^ "|\n");
-    let indexes = Array.of_list l in
-    let arrlen = pred (Array.length indexes) in
+  let _, charlist = vclen_charlist (Bytes.to_string finaltext) in
+  let loopandprint ticks al =
+    let flatlist =
+      let rec loop acc = function
+        | (a, b) :: t -> loop (b :: a :: acc) t
+        | _ -> List.rev acc
+      in
+      loop [] al
+    in
+    let indexes = Array.of_list flatlist in
+    let arrlen = Array.length indexes - 2 in
     if rest = 0 then
       let rec loop ticks idx =
         if ticks <= 0 then ()
         else begin
-          print (Array.unsafe_get indexes idx);
+          print
+            (Array.unsafe_get indexes idx)
+            (Array.unsafe_get indexes (succ idx));
           Externs.caml_clock_nanosleep sleep;
-          let nidx = if idx = arrlen then 0 else succ idx in
+          let nidx = if idx = arrlen then 0 else idx + 2 in
           (loop [@tailcall]) (pred ticks) nidx
         end
       in
@@ -438,14 +163,13 @@ let run text
         | i :: lt -> minmax (if f i goal then i else goal) f lt
         | _ -> goal
       in
-      let minidx = minmax 1024 ( < ) l in
-      let maxidx = minmax 0 ( > ) l in
+      let minidx = minmax 1024 ( < ) flatlist in
+      let maxidx = minmax 0 ( > ) flatlist in
       let rec loop ticks idx =
         if ticks <= 0 then ()
         else begin
           let pos = Array.unsafe_get indexes idx in
-          (* print_string (string_of_int pos ^ " "); *)
-          print pos;
+          print pos width;
           Externs.caml_clock_nanosleep
             (if pos = minidx || pos = maxidx then rest else sleep);
           let nidx = if idx = arrlen then 0 else succ idx in
@@ -454,88 +178,122 @@ let run text
       in
       loop ticks 0
   in
-  let lenminuswidth = total_len - width in
-  let halflen = total_len asr 1 in
-  let predlentext = pred total_len in
+  let bytesofutfchars str visualchars =
+    let bytelen, _ =
+      Uuseg_string.fold_utf_8 `Grapheme_cluster
+        (fun (bytecount, charcount) char ->
+          if charcount >= visualchars then (bytecount, charcount)
+          else (bytecount + String.length char, succ charcount))
+        (0, 0) str
+    in
+    bytelen
+  in
+  let totallen = Bytes.length finaltext in
+  let lenminuswidth =
+    totallen - bytesofutfchars (String.concat charlist) width
+  in
+  let halflen = totallen asr 1 in
   let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
-  let revandtake n l = List.take (List.rev l) n in
-
-  print_endline (string_of_int total_len);
-  print_endline (string_of_int lenminuswidth);
-  print_endline (string_of_int halflen);
+  let ucinds rev charlist sptfn accfn =
+    let rec loop pos acc = function
+      | [] -> if rev then List.rev acc else acc
+      | h :: t ->
+          let lt = h :: t in
+          let str = String.concat lt in
+          let bts = bytesofutfchars str width in
+          let l, r = List.split_n lt (sptfn lt) in
+          loop (String.length (String.concat l) + pos) (accfn str bts pos acc) r
+    in
+    loop 0 [] charlist
+  in
+  let wordsplitfn chr =
+    succ (List.length (List.take_while chr ~f:(fun s -> String.( <> ) s " ")))
+  in
+  let charsplitfn _ = 1 in
+  let accmfn _ bts pos acc = (pos, bts) :: acc in
+  let rwaccmfn str bts _ acc = (String.length str - bts, bts) :: acc in
   begin match
-    (direction, scroll, mode, Ordering.of_int (compare text_len width))
+    (direction, scroll, mode, Ordering.of_int (compare visual_chars width))
   with
+  | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
+      let prelims = ucinds true (List.rev charlist) charsplitfn accmfn in
+      let l, r = List.split_while prelims ~f:(fun (a, b) -> a + b < totallen) in
+      let indexes =
+        List.append (List.append l (List.take r 1)) (List.rev (List.drop l 1))
+      in
+      loopandprint (List.length indexes * cycles) indexes
   | Bounce, Word, (Wrap | Reset), Greater -> begin
-      let lh =
-        revandtake wordcount (wordbounds predlentext 1 [ 0 ] succ (-1))
-      in
-      let rh =
-        revandtake wordcount
-          (wordbounds width predlentext [ lenminuswidth ] pred width)
-      in
-      print_endline
-        (List.to_string ~f:string_of_int
-           (wordbounds predlentext 1 [ 0 ] succ (-1)));
-      print_endline
-        (List.to_string ~f:string_of_int
-           (wordbounds width predlentext [ lenminuswidth ] pred width));
+      let rh = ucinds true charlist wordsplitfn rwaccmfn in
+      let lh = ucinds true (List.rev charlist) wordsplitfn accmfn in
       let fltr =
-        List.filter (List.append lh rh) ~f:(fun x -> x <= lenminuswidth)
+        List.filteri (List.append lh rh) ~f:(fun i (a, _) ->
+            (a > 0 || i = 0) && a <= lenminuswidth)
       in
       let indexes =
-        List.remove_consecutive_duplicates fltr ~equal:(fun a b -> a = b)
+        List.remove_consecutive_duplicates fltr ~equal:(fun (a, _) (b, _) ->
+            a = b)
       in
       loopandprint (List.length indexes * cycles) indexes
     end
-  | Right, Word, Reset, Greater -> begin
-      let prelims =
-        revandtake wordcount
-          (wordbounds width predlentext [ lenminuswidth ] pred width)
+  | Bounce, Word, (Wrap | Reset), (Equal | Less) ->
+      loopandprint (cycles lsl 1)
+        [ (0, jointextlen + ecl); (lenminuswidth, jointextlen + ecl) ]
+  | Left, Char, Reset, Greater ->
+      let indexes =
+        List.filter
+          (ucinds true (List.rev charlist) charsplitfn accmfn)
+          ~f:(fun (a, b) -> a + b <= halflen - ecl)
       in
-      let los =
-        List.fold prelims ~init:(-1) ~f:(fun a x ->
-            if x <= succ halflen then succ a else a)
-      in
-      let indexes = List.length prelims - los |> List.take prelims in
       loopandprint (List.length indexes * cycles) indexes
-    end
+  | Left, Char, Wrap, (Greater | Equal | Less) ->
+      let indexes =
+        List.filter
+          (ucinds true (List.rev charlist) charsplitfn accmfn)
+          ~f:(fun (a, _) -> a < halflen)
+      in
+      loopandprint (List.length indexes * cycles) indexes
+  | Left, (Char | Word), Reset, Equal ->
+      loopandprint (cycles lsl 1) [ (0, jointextlen) ]
   | Left, Word, Reset, Greater -> begin
-      let prelims =
-        revandtake wordcount (wordbounds halflen 0 [ 0 ] succ (-1))
+      let prelims = ucinds true (List.rev charlist) wordsplitfn accmfn in
+      let l, r =
+        List.split_while prelims ~f:(fun (a, b) -> a + b < halflen - ecl)
       in
-      let his =
-        List.fold prelims ~init:(-1) ~f:(fun a x ->
-            if x >= pred (halflen - width) then succ a else a)
+      let indexes = List.append l (List.take r 1) in
+      indexes |> loopandprint (List.length indexes * cycles)
+    end
+  | Left, Word, Wrap, (Greater | Equal | Less) ->
+      let indexes = ucinds true (List.rev charlist) wordsplitfn accmfn in
+      indexes |> loopandprint (wordcount * cycles)
+  | (Left | Right), (Char | Word), Reset, Less ->
+      loopandprint (cycles lsl 1) [ (0, jointextlen + ecl) ]
+  | Right, Char, Reset, Greater ->
+      let prelims = ucinds false (List.rev charlist) charsplitfn accmfn in
+      let indexes =
+        List.filter prelims ~f:(fun (a, _) ->
+            a >= halflen + ecl && a < succ lenminuswidth)
       in
-      let indexes = List.length prelims - his |> List.take prelims in
       loopandprint (List.length indexes * cycles) indexes
+  | Right, Char, Wrap, (Greater | Equal | Less) ->
+      let prelims = ucinds false (List.rev charlist) charsplitfn accmfn in
+      let indexes =
+        List.filter prelims ~f:(fun (a, _) ->
+            a > lenminuswidth - halflen && a < succ lenminuswidth)
+      in
+      loopandprint (List.length indexes * cycles) indexes
+  | Right, (Char | Word), Reset, Equal ->
+      loopandprint (cycles lsl 1) [ (ecl, jointextlen) ]
+  | Right, Word, Reset, Greater -> begin
+      let prelims = ucinds true charlist wordsplitfn rwaccmfn in
+      let l, r =
+        List.split_while prelims ~f:(fun (a, _) -> a > halflen + ecl)
+      in
+      let indexes = List.append l (List.take r 1) in
+      indexes |> loopandprint (List.length indexes * cycles)
     end
   | Right, Word, Wrap, (Greater | Equal | Less) ->
-      revandtake wordcount
-        (wordbounds width predlentext [ lenminuswidth ] pred width)
-      |> loopandprint (wordcount * cycles)
-  | Left, Word, Wrap, (Greater | Equal | Less) ->
-      revandtake wordcount (wordbounds halflen 0 [ 0 ] succ (-1))
-      |> loopandprint (wordcount * cycles)
-  | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
-      (let rh = List.range ~stride:(-1) ~start:`exclusive lenminuswidth 0 in
-       0 :: List.rev_append rh (lenminuswidth :: rh))
-      |> loopandprint ((Int.max 1 lenminuswidth * cycles) lsl 1)
-  | Right, Char, Wrap, (Greater | Equal | Less) ->
-      List.range ~stride:(-1) lenminuswidth (lenminuswidth - halflen)
-      |> loopandprint (halflen * cycles)
-  | Right, Char, Reset, Greater ->
-      List.range ~stride:(-1) lenminuswidth halflen
-      |> loopandprint (succ (text_len - width) * cycles)
-  | Left, Char, Reset, Greater ->
-      List.range 0 (halflen - width)
-      |> loopandprint (succ (text_len - width) * cycles)
-  | Left, Char, Wrap, (Greater | Equal | Less) ->
-      List.range 0 halflen |> loopandprint (halflen * cycles)
-  | Bounce, Word, (Wrap | Reset), (Equal | Less)
-  | (Left | Right), (Char | Word), Reset, (Equal | Less) ->
-      loopandprint (cycles lsl 1) [ 0; lenminuswidth ]
+      let indexes = ucinds true charlist wordsplitfn rwaccmfn in
+      indexes |> loopandprint (wordcount * cycles)
   end;
   match terminator with
   | Newline -> ()
