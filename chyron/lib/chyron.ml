@@ -128,6 +128,8 @@ let run text
   let sfix = Bytes.of_string suffix in
   let slen = Bytes.length sfix in
   let print pos wid =
+    (* print_endline (string_of_int pos);
+    print_endline (string_of_int wid); *)
     Externs.unsafe_output_bytes stdout pfix 0 plen;
     Externs.unsafe_output_bytes stdout finaltext pos wid;
     Externs.unsafe_output_bytes stdout sfix 0 slen;
@@ -135,7 +137,8 @@ let run text
     Externs.unsafe_flush stdout
   in
   let _, charlist = vclen_charlist (Bytes.to_string finaltext) in
-  let loopandprint ticks al =
+  let loopandprint al =
+    let ticks = List.length al * cycles in
     let flatlist =
       let rec loop acc = function
         | (a, b) :: t -> loop (b :: a :: acc) t
@@ -143,6 +146,8 @@ let run text
       in
       loop [] al
     in
+    print_endline (List.to_string ~f:string_of_int flatlist);
+    print_endline (Bytes.to_string finaltext);
     let indexes = Array.of_list flatlist in
     let arrlen = Array.length indexes - 2 in
     if rest = 0 then
@@ -169,10 +174,11 @@ let run text
         if ticks <= 0 then ()
         else begin
           let pos = Array.unsafe_get indexes idx in
-          print pos width;
+          let wid = Array.unsafe_get indexes (succ idx) in
+          print pos wid;
           Externs.caml_clock_nanosleep
             (if pos = minidx || pos = maxidx then rest else sleep);
-          let nidx = if idx = arrlen then 0 else succ idx in
+          let nidx = if idx = arrlen then 0 else idx + 2 in
           (loop [@tailcall]) (pred ticks) nidx
         end
       in
@@ -193,7 +199,6 @@ let run text
     totallen - bytesofutfchars (String.concat charlist) width
   in
   let halflen = totallen asr 1 in
-  let wordcount = List.fold text ~init:0 ~f:(fun i _ -> succ i) in
   let ucinds rev charlist sptfn accfn =
     let rec loop pos acc = function
       | [] -> if rev then List.rev acc else acc
@@ -218,10 +223,8 @@ let run text
   | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
       let prelims = ucinds true (List.rev charlist) charsplitfn accmfn in
       let l, r = List.split_while prelims ~f:(fun (a, b) -> a + b < totallen) in
-      let indexes =
-        List.append (List.append l (List.take r 1)) (List.rev (List.drop l 1))
-      in
-      loopandprint (List.length indexes * cycles) indexes
+      List.append (List.append l (List.take r 1)) (List.rev (List.drop l 1))
+      |> loopandprint
   | Bounce, Word, (Wrap | Reset), Greater -> begin
       let rh = ucinds true charlist wordsplitfn rwaccmfn in
       let lh = ucinds true (List.rev charlist) wordsplitfn accmfn in
@@ -229,71 +232,59 @@ let run text
         List.filteri (List.append lh rh) ~f:(fun i (a, _) ->
             (a > 0 || i = 0) && a <= lenminuswidth)
       in
-      let indexes =
-        List.remove_consecutive_duplicates fltr ~equal:(fun (a, _) (b, _) ->
-            a = b)
-      in
-      loopandprint (List.length indexes * cycles) indexes
+      List.remove_consecutive_duplicates fltr ~equal:(fun (a, _) (b, _) ->
+          a = b)
+      |> loopandprint
     end
   | Bounce, Word, (Wrap | Reset), (Equal | Less) ->
-      loopandprint (cycles lsl 1)
-        [ (0, jointextlen + ecl); (lenminuswidth, jointextlen + ecl) ]
+      [ (0, jointextlen + ecl); (lenminuswidth, jointextlen + ecl) ]
+      |> loopandprint
   | Left, Char, Reset, Greater ->
-      let indexes =
-        List.filter
-          (ucinds true (List.rev charlist) charsplitfn accmfn)
-          ~f:(fun (a, b) -> a + b <= halflen - ecl)
-      in
-      loopandprint (List.length indexes * cycles) indexes
+      List.filter
+        (ucinds true (List.rev charlist) charsplitfn accmfn)
+        ~f:(fun (a, b) -> a + b <= halflen - ecl)
+      |> loopandprint
   | Left, Char, Wrap, (Greater | Equal | Less) ->
-      let indexes =
-        List.filter
-          (ucinds true (List.rev charlist) charsplitfn accmfn)
-          ~f:(fun (a, _) -> a < halflen)
-      in
-      loopandprint (List.length indexes * cycles) indexes
-  | Left, (Char | Word), Reset, Equal ->
-      loopandprint (cycles lsl 1) [ (0, jointextlen) ]
+      List.filter
+        (ucinds true (List.rev charlist) charsplitfn accmfn)
+        ~f:(fun (a, _) -> a < halflen)
+      |> loopandprint
+  | Left, (Char | Word), Reset, Equal -> [ (0, jointextlen) ] |> loopandprint
   | Left, Word, Reset, Greater -> begin
       let prelims = ucinds true (List.rev charlist) wordsplitfn accmfn in
       let l, r =
         List.split_while prelims ~f:(fun (a, b) -> a + b < halflen - ecl)
       in
-      let indexes = List.append l (List.take r 1) in
-      indexes |> loopandprint (List.length indexes * cycles)
+      List.append l (List.take r 1) |> loopandprint
     end
   | Left, Word, Wrap, (Greater | Equal | Less) ->
-      let indexes = ucinds true (List.rev charlist) wordsplitfn accmfn in
-      indexes |> loopandprint (wordcount * cycles)
+      let prelims = ucinds true (List.rev charlist) wordsplitfn accmfn in
+      List.take prelims (List.fold text ~init:0 ~f:(fun i _ -> succ i))
+      |> loopandprint
   | (Left | Right), (Char | Word), Reset, Less ->
-      loopandprint (cycles lsl 1) [ (0, jointextlen + ecl) ]
+      [ (0, jointextlen + ecl) ] |> loopandprint
   | Right, Char, Reset, Greater ->
       let prelims = ucinds false (List.rev charlist) charsplitfn accmfn in
-      let indexes =
-        List.filter prelims ~f:(fun (a, _) ->
-            a >= halflen + ecl && a < succ lenminuswidth)
-      in
-      loopandprint (List.length indexes * cycles) indexes
+      List.filter prelims ~f:(fun (a, _) ->
+          a >= halflen + ecl && a < succ lenminuswidth)
+      |> loopandprint
   | Right, Char, Wrap, (Greater | Equal | Less) ->
       let prelims = ucinds false (List.rev charlist) charsplitfn accmfn in
-      let indexes =
-        List.filter prelims ~f:(fun (a, _) ->
-            a > lenminuswidth - halflen && a < succ lenminuswidth)
-      in
-      loopandprint (List.length indexes * cycles) indexes
-  | Right, (Char | Word), Reset, Equal ->
-      loopandprint (cycles lsl 1) [ (ecl, jointextlen) ]
+      List.filter prelims ~f:(fun (a, _) ->
+          a > lenminuswidth - halflen && a < succ lenminuswidth)
+      |> loopandprint
+  | Right, (Char | Word), Reset, Equal -> [ (ecl, jointextlen) ] |> loopandprint
   | Right, Word, Reset, Greater -> begin
       let prelims = ucinds true charlist wordsplitfn rwaccmfn in
       let l, r =
         List.split_while prelims ~f:(fun (a, _) -> a > halflen + ecl)
       in
-      let indexes = List.append l (List.take r 1) in
-      indexes |> loopandprint (List.length indexes * cycles)
+      List.append l (List.take r 1) |> loopandprint
     end
   | Right, Word, Wrap, (Greater | Equal | Less) ->
-      let indexes = ucinds true charlist wordsplitfn rwaccmfn in
-      indexes |> loopandprint (wordcount * cycles)
+      let prelims = ucinds true charlist wordsplitfn rwaccmfn in
+      List.take prelims (List.fold text ~init:0 ~f:(fun i _ -> succ i))
+      |> loopandprint
   end;
   match terminator with
   | Newline -> ()
