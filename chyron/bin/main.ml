@@ -30,7 +30,7 @@ let flags : cliflags Command.Param.t =
   and rest =
     flag_optional_with_default_doc "--rest" ~aliases:[ "-r" ] Ints.zeroplus
       (fun x -> Int.sexp_of_t x)
-      ~default:0 ~doc:"int alternate sleep in ms for frames at extremes\n"
+      ~default:0 ~doc:"int additional sleep in ms for frames at extremes\n"
   and scroll =
     flag_optional_with_default_doc "--scroll" ~aliases:[ "-sc" ] Scroll.arg
       Scroll.sexp_of_t ~default:Char
