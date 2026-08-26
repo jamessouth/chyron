@@ -136,41 +136,32 @@ let run text
     Externs.unsafe_output_char stdout lastchar;
     Externs.unsafe_flush stdout
   in
-  let loopandprint al =
-    let len = List.length al in
-
-    let init n =
-      let tot = sleep + rest in
-      match n with
+  let loopandprint pwlist =
+    let len = List.length pwlist in
+    let tot = sleep + rest in
+    let slist =
+      match len with
       | 1 -> [ tot ]
       | 2 -> [ tot; tot ]
       | _ ->
           let rec loop i acc =
             if i = 0 then tot :: acc else loop (pred i) (sleep :: acc)
           in
-          loop (n - 2) [ tot ]
+          loop (len - 2) [ tot ]
     in
-    let sleeplist = init len in
     let flatlist =
-      let rec loop pw sl =
-        match (pw, sl) with
+      let rec loop pwl sll =
+        match (pwl, sll) with
         | [], [] -> []
-        | (a, b) :: pw, s :: sl -> a :: b :: s :: loop pw sl
+        | (p, w) :: pw, s :: sl -> p :: w :: s :: loop pw sl
         | _, _ -> []
-        (* | _ -> List.rev acc *)
       in
-      loop al sleeplist
+      loop pwlist slist
     in
-
-    (* let rec combine l1 l2 =
-  match (l1, l2) with
-  | (a1::l1, a2::l2) -> (a1, a2) :: combine l1 l2 *)
-    print_endline (List.to_string ~f:string_of_int flatlist);
-    print_endline (Bytes.to_string finaltext);
-    let ticks = len * cycles in
+    (* print_endline (List.to_string ~f:string_of_int flatlist);
+    print_endline (Bytes.to_string finaltext); *)
     let indexes = Array.of_list flatlist in
     let arrlen = Array.length indexes - 3 in
-
     let rec loop ticks idx =
       if ticks <= 0 then ()
       else begin
@@ -182,7 +173,7 @@ let run text
         (loop [@tailcall]) (pred ticks) nidx
       end
     in
-    loop ticks 0
+    loop (len * cycles) 0
   in
   let bytesofutfchars str visualchars =
     let bytelen, _ =
@@ -216,22 +207,24 @@ let run text
   let wordsplitfn chr =
     succ (List.length (List.take_while chr ~f:(fun s -> String.( <> ) s " ")))
   in
-  let charsplitfn _ = 1 in
   let accmfn _ bts pos acc = (pos, bts) :: acc in
-  let rwaccmfn str bts _ acc = (String.length str - bts, bts) :: acc in
+  let brword =
+    ucinds true charlist wordsplitfn (fun str bts _ acc ->
+        (String.length str - bts, bts) :: acc)
+  in
+  let blchar = ucinds true revcharlist (fun _ -> 1) accmfn in
+  let blword = ucinds true revcharlist wordsplitfn accmfn in
+  let rchar = ucinds false revcharlist (fun _ -> 1) accmfn in
+  let takeappend r l = List.append l (List.take r 1) in
   begin match
     (direction, scroll, mode, Ordering.of_int (compare visual_chars width))
   with
   | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
-      let prelims = ucinds true revcharlist charsplitfn accmfn in
-      let l, r = List.split_while prelims ~f:(fun (a, b) -> a + b < totallen) in
-      List.append (List.append l (List.take r 1)) (List.rev (List.drop l 1))
-      |> loopandprint
+      let l, r = List.split_while blchar ~f:(fun (a, b) -> a + b < totallen) in
+      List.append (takeappend r l) (List.rev (List.drop l 1)) |> loopandprint
   | Bounce, Word, (Wrap | Reset), Greater -> begin
-      let rh = ucinds true charlist wordsplitfn rwaccmfn in
-      let lh = ucinds true revcharlist wordsplitfn accmfn in
       let fltr =
-        List.filteri (List.append lh rh) ~f:(fun i (a, _) ->
+        List.filteri (List.append blword brword) ~f:(fun i (a, _) ->
             (a > 0 || i = 0) && a <= lenminuswidth)
       in
       List.remove_consecutive_duplicates fltr ~equal:(fun (a, _) (b, _) ->
@@ -242,48 +235,37 @@ let run text
       [ (0, jointextlen + ecl); (lenminuswidth, jointextlen + ecl) ]
       |> loopandprint
   | Left, Char, Reset, Greater ->
-      List.filter (ucinds true revcharlist charsplitfn accmfn) ~f:(fun (a, b) ->
-          a + b <= halflen - ecl)
+      List.filter blchar ~f:(fun (a, b) -> a + b <= halflen - ecl)
       |> loopandprint
   | Left, Char, Wrap, (Greater | Equal | Less) ->
-      List.filter (ucinds true revcharlist charsplitfn accmfn) ~f:(fun (a, _) ->
-          a < halflen)
-      |> loopandprint
+      List.filter blchar ~f:(fun (a, _) -> a < halflen) |> loopandprint
   | Left, (Char | Word), Reset, Equal -> [ (0, jointextlen) ] |> loopandprint
   | Left, Word, Reset, Greater -> begin
-      let prelims = ucinds true revcharlist wordsplitfn accmfn in
       let l, r =
-        List.split_while prelims ~f:(fun (a, b) -> a + b < halflen - ecl)
+        List.split_while blword ~f:(fun (a, b) -> a + b < halflen - ecl)
       in
-      List.append l (List.take r 1) |> loopandprint
+      takeappend r l |> loopandprint
     end
   | Left, Word, Wrap, (Greater | Equal | Less) ->
-      let prelims = ucinds true revcharlist wordsplitfn accmfn in
-      List.take prelims (List.fold text ~init:0 ~f:(fun i _ -> succ i))
+      List.take blword (List.fold text ~init:0 ~f:(fun i _ -> succ i))
       |> loopandprint
   | (Left | Right), (Char | Word), Reset, Less ->
       [ (0, jointextlen + ecl) ] |> loopandprint
   | Right, Char, Reset, Greater ->
-      let prelims = ucinds false revcharlist charsplitfn accmfn in
-      List.filter prelims ~f:(fun (a, _) ->
+      List.filter rchar ~f:(fun (a, _) ->
           a >= halflen + ecl && a < succ lenminuswidth)
       |> loopandprint
   | Right, Char, Wrap, (Greater | Equal | Less) ->
-      let prelims = ucinds false revcharlist charsplitfn accmfn in
-      List.filter prelims ~f:(fun (a, _) ->
+      List.filter rchar ~f:(fun (a, _) ->
           a > lenminuswidth - halflen && a < succ lenminuswidth)
       |> loopandprint
   | Right, (Char | Word), Reset, Equal -> [ (ecl, jointextlen) ] |> loopandprint
   | Right, Word, Reset, Greater -> begin
-      let prelims = ucinds true charlist wordsplitfn rwaccmfn in
-      let l, r =
-        List.split_while prelims ~f:(fun (a, _) -> a > halflen + ecl)
-      in
-      List.append l (List.take r 1) |> loopandprint
+      let l, r = List.split_while brword ~f:(fun (a, _) -> a > halflen + ecl) in
+      takeappend r l |> loopandprint
     end
   | Right, Word, Wrap, (Greater | Equal | Less) ->
-      let prelims = ucinds true charlist wordsplitfn rwaccmfn in
-      List.take prelims (List.fold text ~init:0 ~f:(fun i _ -> succ i))
+      List.take brword (List.fold text ~init:0 ~f:(fun i _ -> succ i))
       |> loopandprint
   end;
   match terminator with
