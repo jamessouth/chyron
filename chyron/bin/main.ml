@@ -22,7 +22,8 @@ let flags : cliflags Command.Param.t =
       ~default:1 ~doc:"int minimum length of endcap\n"
   and mode =
     flag_optional_with_default_doc "--mode" ~aliases:[ "-m" ] Mode.arg
-      Mode.sexp_of_t ~default:Wrap ~doc:"string reset TEXT or wrap around\n"
+      Mode.sexp_of_t ~default:Wrap
+      ~doc:"string reset TEXT, wrap around, or split-flap\n"
   and prefix =
     flag_optional_with_default_doc "--prefix" ~aliases:[ "-p" ] string
       (fun x -> String.sexp_of_t x)
@@ -68,9 +69,9 @@ let flags : cliflags Command.Param.t =
   }
 
 let () =
-  let summ = "summary" in
-  let mdi = "mdi" in
-  Command_unix.run ~version:"1.0" ~build_info:"RWO"
+  let summ = "write me" in
+  let mdi = "write me with more details" in
+  Command_unix.run ~version:"1.0" ~build_info:"tbd"
     (Command.basic ~summary:summ
        ~readme:(fun () -> mdi)
        (let%map_open.Command text =

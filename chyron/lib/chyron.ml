@@ -1,12 +1,12 @@
 open Core
 
 module Mode = struct
-  type t = Reset | Wrap [@@deriving sexp]
+  type t = Reset | Split_flap | Wrap [@@deriving sexp]
 
   let arg =
     Command.Arg_type.of_alist_exn ~accept_unique_prefixes:true
       ~case_sensitive:false ~list_values_in_help:false
-      [ ("reset", Reset); ("wrap", Wrap) ]
+      [ ("reset", Reset); ("split-flap", Split_flap); ("wrap", Wrap) ]
 end
 
 module Ints = struct
@@ -54,12 +54,12 @@ module Externs = struct
 end
 
 module Direction = struct
-  type t = Left | Right | Bounce [@@deriving equal, sexp]
+  type t = Bounce | Left | Right [@@deriving equal, sexp]
 
   let arg =
     Command.Arg_type.of_alist_exn ~accept_unique_prefixes:true
       ~case_sensitive:false ~list_values_in_help:false
-      [ ("left", Left); ("right", Right); ("bounce", Bounce) ]
+      [ ("bounce", Bounce); ("left", Left); ("right", Right) ]
 end
 
 type cliflags = {
@@ -136,6 +136,8 @@ let run text
     Externs.unsafe_output_char stdout lastchar;
     Externs.unsafe_flush stdout
   in
+  (* this is buggy for bounce and wrap modes when rest times are used -  
+  the rest isn't placed on the bounce extreme. it's also repeated in wrap since last abuts first*)
   let loopandprint pwlist =
     let len = List.length pwlist in
     let tot = sleep + rest in
@@ -158,8 +160,8 @@ let run text
       in
       loop pwlist slist
     in
-    (* print_endline (List.to_string ~f:string_of_int flatlist);
-    print_endline (Bytes.to_string finaltext); *)
+    print_endline (List.to_string ~f:string_of_int flatlist);
+    print_endline (Bytes.to_string finaltext);
     let indexes = Array.of_list flatlist in
     let arrlen = Array.length indexes - 3 in
     let rec loop ticks idx =
@@ -219,6 +221,7 @@ let run text
   begin match
     (direction, scroll, mode, Ordering.of_int (compare visual_chars width))
   with
+  | _, _, Split_flap, _ -> print_endline "split-flap"
   | Bounce, Char, (Wrap | Reset), (Greater | Equal | Less) ->
       let l, r = List.split_while blchar ~f:(fun (a, b) -> a + b < totallen) in
       List.append (takeappend r l) (List.rev (List.drop l 1)) |> loopandprint
