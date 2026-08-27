@@ -136,29 +136,35 @@ let run text
     Externs.unsafe_output_char stdout lastchar;
     Externs.unsafe_flush stdout
   in
-  (* this is buggy for bounce and wrap modes when rest times are used -  
-  the rest isn't placed on the bounce extreme. it's also repeated in wrap since last abuts first*)
   let loopandprint pwlist =
-    let len = List.length pwlist in
+    let pwlen = List.length pwlist in
     let tot = sleep + rest in
-    let slist =
-      match len with
-      | 1 -> [ tot ]
-      | 2 -> [ tot; tot ]
-      | _ ->
-          let rec loop i acc =
-            if i = 0 then tot :: acc else loop (pred i) (sleep :: acc)
+    let pwslist =
+      match (direction, mode) with
+      | Bounce, _ ->
+          let maxpos =
+            let rec loop max = function
+              | [] -> max
+              | (p, _) :: t -> loop (if p > max then p else max) t
+            in
+            loop 0 pwlist
           in
-          loop (len - 2) [ tot ]
+          List.map pwlist ~f:(fun (p, w) ->
+              if p = 0 || p = maxpos then (p, w, tot) else (p, w, sleep))
+      | _, Wrap ->
+          List.mapi pwlist ~f:(fun i (p, w) ->
+              if i = 0 then (p, w, tot) else (p, w, sleep))
+      | _, Reset ->
+          List.mapi pwlist ~f:(fun i (p, w) ->
+              if i = 0 || i = pred pwlen then (p, w, tot) else (p, w, sleep))
+      | _ -> []
     in
     let flatlist =
-      let rec loop pwl sll =
-        match (pwl, sll) with
-        | [], [] -> []
-        | (p, w) :: pw, s :: sl -> p :: w :: s :: loop pw sl
-        | _, _ -> []
+      let rec loop = function
+        | [] -> []
+        | (p, w, s) :: t -> p :: w :: s :: loop t
       in
-      loop pwlist slist
+      loop pwslist
     in
     print_endline (List.to_string ~f:string_of_int flatlist);
     print_endline (Bytes.to_string finaltext);
@@ -175,7 +181,7 @@ let run text
         (loop [@tailcall]) (pred ticks) nidx
       end
     in
-    loop (len * cycles) 0
+    loop (pwlen * cycles) 0
   in
   let bytesofutfchars str visualchars =
     let bytelen, _ =
