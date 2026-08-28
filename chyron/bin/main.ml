@@ -51,7 +51,7 @@ let bflags : bounceflags Command.Param.t =
   in
   { endcap_char; endcap_len; rest; scroll_unit }
 
-let sflags : scrollflags Command.Param.t =
+let scflags : scrollflags Command.Param.t =
   let%map_open.Command direction =
     flag_optional_with_default_doc "--direction" ~aliases:[ "-d" ] Direction.arg
       Direction.sexp_of_t ~default:Left
@@ -63,15 +63,23 @@ let sflags : scrollflags Command.Param.t =
   in
   { direction; scroll_mode }
 
+let spflags : splitflapflags Command.Param.t =
+  let%map_open.Command justify =
+    flag_optional_with_default_doc "--justify" ~aliases:[ "-j" ] Justify.arg
+      Justify.sexp_of_t ~default:Center
+      ~doc:"string align TEXT to left, right, or center\n"
+  in
+  { justify }
+
 let scroll =
   Command.basic ~summary:"scroll mode summary"
     ~readme:(fun () -> "scroll mode details")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags
-     and sflags
+     and scflags
      and bflags in
-     fun () -> run_scroll text uflags sflags bflags)
+     fun () -> run_scroll text uflags scflags bflags)
 
 let bounce =
   Command.basic ~summary:"bounce mode summary"
@@ -82,7 +90,16 @@ let bounce =
      and bflags in
      fun () -> run_bounce text uflags bflags)
 
+let split_flap =
+  Command.basic ~summary:"split-flap mode summary"
+    ~readme:(fun () -> "split-flap mode details")
+    (let%map_open.Command text =
+       anon (non_empty_sequence_as_list ("text" %: string))
+     and uflags
+     and spflags in
+     fun () -> run_split_flap text uflags spflags)
+
 let () =
   Command_unix.run ~version:"1.0" ~build_info:"tbd"
     (Command.group ~summary:"group summary"
-       [ ("bounce", bounce); ("scroll", scroll) ])
+       [ ("bounce", bounce); ("scroll", scroll); ("split-flap", split_flap) ])
