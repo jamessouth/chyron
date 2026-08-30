@@ -101,23 +101,46 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
     (tl, cl)
   in
 
+  let breakdown =
+    let rec loop txt =
+      match
+        List.for_all txt ~f:(fun x ->
+            let vis, _ = vclen_charlist x in
+            vis <= width)
+      with
+      | true -> txt
+      | false ->
+          loop
+            (List.rev
+               (List.fold txt ~init:[] ~f:(fun acc x ->
+                    let vis, lt = vclen_charlist x in
+                    if vis > width then
+                      let l, r = List.split_n lt (List.length lt asr 1) in
+                      String.concat (List.rev l)
+                      :: String.concat (List.rev r)
+                      :: acc
+                    else x :: acc)))
+    in
+    loop text
+  in
+
   let buildup =
+    let sub = List.sub text in
     let rec loop acc pos len =
       Printf.printf "%d %d\n" pos len;
       let predlen = pred len in
       match pos + len > List.length text with
       | true ->
-          List.rev_map (List.sub text ~pos ~len:predlen :: acc) ~f:(fun x ->
+          List.rev_map (sub ~pos ~len:predlen :: acc) ~f:(fun x ->
               String.concat ~sep:" " x)
       | false -> begin
           let vis, _ =
-            vclen_charlist (String.concat ~sep:" " (List.sub text ~pos ~len))
+            vclen_charlist (String.concat ~sep:" " (sub ~pos ~len))
           in
           match Ordering.of_int (compare vis width) with
           | Less -> loop acc pos (succ len)
-          | Greater ->
-              loop (List.sub text ~pos ~len:predlen :: acc) (pos + predlen) 1
-          | Equal -> loop (List.sub text ~pos ~len :: acc) (pos + len) 1
+          | Greater -> loop (sub ~pos ~len:predlen :: acc) (pos + predlen) 1
+          | Equal -> loop (sub ~pos ~len :: acc) (pos + len) 1
         end
     in
     loop [] 0 1
