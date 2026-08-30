@@ -100,6 +100,31 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
     in
     (tl, cl)
   in
+
+  let buildup =
+    let rec loop acc pos len =
+      Printf.printf "%d %d\n" pos len;
+      let predlen = pred len in
+      match pos + len > List.length text with
+      | true ->
+          List.rev_map (List.sub text ~pos ~len:predlen :: acc) ~f:(fun x ->
+              String.concat ~sep:" " x)
+      | false -> begin
+          let vis, _ =
+            vclen_charlist (String.concat ~sep:" " (List.sub text ~pos ~len))
+          in
+          match Ordering.of_int (compare vis width) with
+          | Less -> loop acc pos (succ len)
+          | Greater ->
+              loop (List.sub text ~pos ~len:predlen :: acc) (pos + predlen) 1
+          | Equal -> loop (List.sub text ~pos ~len :: acc) (pos + len) 1
+        end
+    in
+    loop [] 0 1
+  in
+
+  print_endline (List.to_string ~f:(fun j -> j) buildup);
+
   let joined_text = String.concat ~sep:" " text in
   let _jointextlen = String.length joined_text in
   let visual_chars, _ = vclen_charlist joined_text in
@@ -331,8 +356,7 @@ let run_scroll text { cycles; prefix; sleep; suffix; terminator; width }
       takeappend r l |> loopandprint
     end
   | Left, Word, Wrap, (Greater | Equal | Less) ->
-      List.take blword (List.fold text ~init:0 ~f:(fun i _ -> succ i))
-      |> loopandprint
+      List.take blword (List.length text) |> loopandprint
   | (Left | Right), (Char | Word), Reset, Less ->
       [ (0, jointextlen + ecl) ] |> loopandprint
   | Right, Char, Reset, Greater ->
@@ -349,8 +373,7 @@ let run_scroll text { cycles; prefix; sleep; suffix; terminator; width }
       takeappend r l |> loopandprint
     end
   | Right, Word, Wrap, (Greater | Equal | Less) ->
-      List.take brword (List.fold text ~init:0 ~f:(fun i _ -> succ i))
-      |> loopandprint
+      List.take brword (List.length text) |> loopandprint
   end;
   match terminator with
   | Newline -> ()

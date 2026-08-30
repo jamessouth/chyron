@@ -2,7 +2,7 @@ open Core
 open Chyron
 (* open Core_bench *)
 
-let uflags : universalflags Command.Param.t =
+let uflags =
   let%map_open.Command cycles =
     flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.zeroplus
       (fun x -> Int.sexp_of_t x)
@@ -30,7 +30,7 @@ let uflags : universalflags Command.Param.t =
   in
   { cycles; prefix; sleep; suffix; terminator; width }
 
-let bflags : bounceflags Command.Param.t =
+let bflags =
   let%map_open.Command endcap_char =
     flag_optional_with_default_doc "--endcap-char" ~aliases:[ "-ec" ] char
       (fun x -> Char.sexp_of_t x)
@@ -51,7 +51,7 @@ let bflags : bounceflags Command.Param.t =
   in
   { endcap_char; endcap_len; rest; scroll_unit }
 
-let scflags : scrollflags Command.Param.t =
+let scflags =
   let%map_open.Command direction =
     flag_optional_with_default_doc "--direction" ~aliases:[ "-d" ] Direction.arg
       Direction.sexp_of_t ~default:Left
@@ -63,7 +63,7 @@ let scflags : scrollflags Command.Param.t =
   in
   { direction; scroll_mode }
 
-let spflags : splitflapflags Command.Param.t =
+let sfflags =
   let%map_open.Command justify =
     flag_optional_with_default_doc "--justify" ~aliases:[ "-j" ] Justify.arg
       Justify.sexp_of_t ~default:Center
@@ -96,8 +96,8 @@ let split_flap =
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags
-     and spflags in
-     fun () -> run_split_flap text uflags spflags)
+     and sfflags in
+     fun () -> run_split_flap text uflags sfflags)
 
 let () =
   Command_unix.run ~version:"1.0" ~build_info:"tbd"
