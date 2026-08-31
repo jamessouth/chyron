@@ -101,7 +101,7 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
     (tl, cl)
   in
 
-  let breakdown =
+  let breakdown txt =
     let rec loop txt =
       match
         List.for_all txt ~f:(fun x ->
@@ -121,18 +121,18 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
                       :: acc
                     else x :: acc)))
     in
-    loop text
+    loop txt
   in
 
-  let buildup =
-    let sub = List.sub text in
+  let buildup txt =
+    let sub = List.sub txt in
     let rec loop acc pos len =
       Printf.printf "%d %d\n" pos len;
       let predlen = pred len in
-      match pos + len > List.length text with
+      match pos + len > List.length txt with
       | true ->
-          List.rev_map (sub ~pos ~len:predlen :: acc) ~f:(fun x ->
-              String.concat ~sep:" " x)
+          let lt = if predlen = 0 then acc else sub ~pos ~len:predlen :: acc in
+          List.rev_map lt ~f:(fun x -> String.concat ~sep:" " x)
       | false -> begin
           let vis, _ =
             vclen_charlist (String.concat ~sep:" " (sub ~pos ~len))
@@ -146,7 +146,24 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
     loop [] 0 1
   in
 
-  print_endline (List.to_string ~f:(fun j -> j) buildup);
+  let pad txt =
+    List.map txt ~f:(fun x ->
+        let vis, _ = vclen_charlist x in
+        let diff = width - vis in
+        Printf.printf "%d %d %s %s|\n" vis diff
+          (String.t_of_sexp (Justify.sexp_of_t justify))
+          x;
+        match (justify, diff = 0) with
+        | _, true -> x
+        | Left, false -> String.concat [ x; String.make diff ' ' ]
+        | Right, false -> String.concat [ String.make diff ' '; x ]
+        | Center, false ->
+            let r = diff / 2 in
+            String.concat [ String.make r ' '; x; String.make (diff - r) ' ' ])
+  in
+
+  print_endline
+    (List.to_string ~f:(fun j -> j) (pad (buildup (breakdown text))));
 
   let joined_text = String.concat ~sep:" " text in
   let _jointextlen = String.length joined_text in
