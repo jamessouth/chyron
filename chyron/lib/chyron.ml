@@ -162,16 +162,14 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
             String.concat [ String.make r ' '; x; String.make (diff - r) ' ' ])
   in
 
-  print_endline
-    (List.to_string ~f:(fun j -> j) (pad (buildup (breakdown text))));
+  let finaltex = pad (buildup (breakdown text)) in
+  print_endline (List.to_string ~f:(fun j -> j) finaltex);
 
-  let joined_text = String.concat ~sep:" " text in
-  let _jointextlen = String.length joined_text in
+  (* let joined_text = String.concat ~sep:" " text in
+    let _jointextlen = String.length joined_text in
   let visual_chars, _ = vclen_charlist joined_text in
   let _width_minus_visual_chars = width - visual_chars in
-
-  let joined_bytes = Bytes.of_string joined_text in
-  let finaltext = joined_bytes in
+  let joined_bytes = Bytes.of_string joined_text in *)
   let lastchar =
     match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
   in
@@ -179,37 +177,53 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
   let plen = Bytes.length pfix in
   let sfix = Bytes.of_string suffix in
   let slen = Bytes.length sfix in
-  let print pos wid =
+  let print finalt =
+    (* let finaltext = Bytes.of_string finalt in *)
     (* print_endline (string_of_int pos);
     print_endline (string_of_int wid); *)
     Externs.unsafe_output_bytes stdout pfix 0 plen;
-    Externs.unsafe_output_bytes stdout finaltext pos wid;
+    Externs.unsafe_output_bytes stdout finalt 0 width;
     Externs.unsafe_output_bytes stdout sfix 0 slen;
     Externs.unsafe_output_char stdout lastchar;
     Externs.unsafe_flush stdout
   in
-  let _loopandprint pwlist =
-    let pwlen = List.length pwlist in
 
-    let flatlist = [ 1; 2 ] in
-    print_endline (List.to_string ~f:string_of_int flatlist);
-    print_endline (Bytes.to_string finaltext);
-    let indexes = Array.of_list flatlist in
-    let arrlen = Array.length indexes - 3 in
-    let rec loop ticks idx =
-      if ticks <= 0 then ()
-      else begin
-        print
-          (Array.unsafe_get indexes idx)
-          (Array.unsafe_get indexes (succ idx));
-        Externs.caml_clock_nanosleep (Array.unsafe_get indexes (idx + 2));
-        let nidx = if idx = arrlen then 0 else idx + 3 in
-        (loop [@tailcall]) (pred ticks) nidx
-      end
+  let finalbuf = Bytes.create 20 in
+
+  let fff str =
+    let _, charlist = vclen_charlist str in
+    let bl, dl =
+      List.unzip
+        (List.map (List.rev charlist) ~f:(fun x ->
+             (Bytes.of_string x, Random.int_incl 2 4)))
     in
-    loop (pwlen * cycles) 0
+    let maxd = 4 in
+
+    let rec loop tix =
+      match tix with
+      | 0 -> ()
+      | _ ->
+          print b;
+          print_endline (string_of_int d);
+          Externs.caml_clock_nanosleep 800;
+          (loop [@tailcall]) t
+    in
+    loop maxd
   in
-  let bytesofutfchars str visualchars =
+
+  let loopandprint pwlist =
+    let rec loop = function
+      | [] -> ()
+      | h :: t ->
+          fff h;
+          Externs.caml_clock_nanosleep sleep;
+          (loop [@tailcall]) t
+    in
+    loop pwlist
+  in
+  loopandprint finaltex;
+
+  (* let bytesofutfchars str visualchars =
     let bytelen, _ =
       Uuseg_string.fold_utf_8 `Grapheme_cluster
         (fun (bytecount, charcount) char ->
@@ -250,7 +264,7 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
   let _blword = ucinds true revcharlist wordsplitfn accmfn in
   let _rchar = ucinds false revcharlist (fun _ -> 1) accmfn in
   let _takeappend r l = List.append l (List.take r 1) in
-  ();
+  (); *)
   match terminator with
   | Newline -> ()
   | _ ->
