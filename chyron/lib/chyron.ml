@@ -89,6 +89,11 @@ type bounceflags = {
 
 type splitflapflags = { justify : Justify.t }
 type scrollflags = { direction : Direction.t; scroll_mode : Scroll_mode.t }
+(* type stream_element = Yielded of string | Finished of string
+type worker_state = Generating of int * string | Done *)
+
+type worker_status = Active | Terminal
+type worker = { letter : string; count : int; status : worker_status }
 
 let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
     { justify } =
@@ -98,30 +103,23 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
         (fun (tlacc, clacc) char -> (succ tlacc, char :: clacc))
         (0, []) str
     in
-    (tl, cl)
+    (tl, List.rev cl)
+  in
+
+  let rec list_concat ~sep = function
+    | [] -> []
+    | [ s ] -> s
+    | h :: t -> List.append (List.append h sep) (list_concat ~sep t)
   in
 
   let breakdown txt =
-    let rec loop txt =
-      match
-        List.for_all txt ~f:(fun x ->
-            let vis, _ = vclen_charlist x in
-            vis <= width)
-      with
-      | true -> txt
-      | false ->
-          loop
-            (List.rev
-               (List.fold txt ~init:[] ~f:(fun acc x ->
-                    let vis, lt = vclen_charlist x in
-                    if vis > width then
-                      let l, r = List.split_n lt (List.length lt asr 1) in
-                      String.concat (List.rev l)
-                      :: String.concat (List.rev r)
-                      :: acc
-                    else x :: acc)))
-    in
-    loop txt
+    List.rev
+      (List.fold txt ~init:[] ~f:(fun acc x ->
+           let vis, lt = vclen_charlist x in
+           if vis > width then
+             let l, r = List.split_n lt (List.length lt asr 1) in
+             r :: l :: acc
+           else lt :: acc))
   in
 
   let buildup txt =
@@ -132,11 +130,9 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
       match pos + len > List.length txt with
       | true ->
           let lt = if predlen = 0 then acc else sub ~pos ~len:predlen :: acc in
-          List.rev_map lt ~f:(fun x -> String.concat ~sep:" " x)
+          List.rev_map lt ~f:(fun x -> list_concat ~sep:[ " " ] x)
       | false -> begin
-          let vis, _ =
-            vclen_charlist (String.concat ~sep:" " (sub ~pos ~len))
-          in
+          let vis = List.length (list_concat ~sep:[ " " ] (sub ~pos ~len)) in
           match Ordering.of_int (compare vis width) with
           | Less -> loop acc pos (succ len)
           | Greater -> loop (sub ~pos ~len:predlen :: acc) (pos + predlen) 1
@@ -148,36 +144,132 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
 
   let pad txt =
     List.map txt ~f:(fun x ->
-        let vis, _ = vclen_charlist x in
-        let diff = width - vis in
-        Printf.printf "%d %d %s %s|\n" vis diff
+        let diff = width - List.length x in
+        Printf.printf " %d %s %s|\n" diff
           (String.t_of_sexp (Justify.sexp_of_t justify))
-          x;
+          (List.to_string ~f:Fn.id x);
         match (justify, diff = 0) with
         | _, true -> x
-        | Left, false -> String.concat [ x; String.make diff ' ' ]
-        | Right, false -> String.concat [ String.make diff ' '; x ]
+        | Left, false ->
+            list_concat ~sep:[] [ x; List.init diff ~f:(fun _ -> " ") ]
+        | Right, false ->
+            list_concat ~sep:[] [ List.init diff ~f:(fun _ -> " "); x ]
         | Center, false ->
             let r = diff / 2 in
-            String.concat [ String.make r ' '; x; String.make (diff - r) ' ' ])
+            list_concat ~sep:[]
+              [
+                List.init r ~f:(fun _ -> " ");
+                x;
+                List.init (diff - r) ~f:(fun _ -> " ");
+              ])
   in
 
   let finaltex = pad (buildup (breakdown text)) in
-  print_endline (List.to_string ~f:(fun j -> j) finaltex);
+  print_endline
+    (List.to_string ~f:(fun j -> List.to_string ~f:Fn.id j) finaltex);
+
+  (* let make_fast_worker ~max_count st =
+    Sequence.unfold
+      ~init:(Generating (0, " "))
+      ~f:(fun state ->
+        match state with
+        | Generating (i, s) ->
+            if i > max_count then
+              let final_msg = Finished st in
+              Some (final_msg, Done)
+            else
+              let value = Yielded s in
+              Some (value, Generating (i + 1, String.of_char (Random.ascii ())))
+        | Done -> None)
+  in *)
+
+  (* let rec step_all_generators active_sequences =
+    match active_sequences with
+    | [] -> printf "All fast generators have completed!\n"
+    | seqs ->
+        let remaining_seqs =
+          List.filter_map seqs ~f:(fun seq ->
+              match Sequence.next seq with
+              | None -> None
+              | Some (item, next_seq) ->
+                  (match item with
+                  | Yielded value -> printf "%s" value
+                  | Finished final_msg -> printf " EVENT: %s\n" final_msg);
+                  Some next_seq)
+        in
+        Core_unix.nanosleep 1. |> ignore;
+        step_all_generators remaining_seqs
+  in *)
+  let ltrs =
+    Array.of_list
+      [ "a"; "v"; "h"; "w"; "t"; "u"; "z"; "A"; "E"; "T"; "C"; "P"; "2"; "6" ]
+  in
+  let lenn = Array.length ltrs in
+  let worker_step w =
+    match w.status with
+    | Terminal -> Some (w.letter, w)
+    | Active ->
+        if w.count <= 0 then Some (w.letter, { w with status = Terminal })
+        else Some (ltrs.(Random.int lenn), { w with count = w.count - 1 })
+  in
+
+  let rec run_infinite_workers workers iterations_left =
+    (* List.iter workers ~f:(fun x -> Printf.printf "%d" x.count);
+    print_endline ""; *)
+    if iterations_left <= 0 then print_endline "Stopping loop simulation."
+    else
+      let stepped = List.map workers ~f:worker_step in
+
+      let outputs =
+        List.map stepped ~f:(function Some (v, _) -> v | None -> assert false)
+      in
+      let next_workers =
+        List.map stepped ~f:(function
+          | Some (_, next_w) -> next_w
+          | None -> assert false)
+      in
+
+      let line = String.concat ~sep:"" outputs in
+      Printf.printf "%s\r%!" line;
+      Core_unix.nanosleep 0.08 |> ignore;
+      run_infinite_workers next_workers (iterations_left - 1)
+  in
+
+  let loopandprint pwlist =
+    let rec loop = function
+      | [] -> ()
+      | h :: t ->
+          let generators =
+            List.map
+              ~f:(fun x ->
+                let count = 12 + Random.int 70 in
+                { letter = x; count; status = Active })
+              h
+          in
+          run_infinite_workers generators 90;
+          (* step_all_generators ; *)
+          Externs.caml_clock_nanosleep sleep;
+          (loop [@tailcall]) t
+    in
+    loop pwlist
+  in
+  ();
+
+  loopandprint finaltex;
 
   (* let joined_text = String.concat ~sep:" " text in
     let _jointextlen = String.length joined_text in
   let visual_chars, _ = vclen_charlist joined_text in
   let _width_minus_visual_chars = width - visual_chars in
   let joined_bytes = Bytes.of_string joined_text in *)
-  let lastchar =
+  (* let lastchar =
     match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
   in
   let pfix = Bytes.of_string prefix in
   let plen = Bytes.length pfix in
   let sfix = Bytes.of_string suffix in
-  let slen = Bytes.length sfix in
-  let print finalt =
+  let slen = Bytes.length sfix in *)
+  (* let print finalt =
     (* let finaltext = Bytes.of_string finalt in *)
     (* print_endline (string_of_int pos);
     print_endline (string_of_int wid); *)
@@ -186,9 +278,9 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
     Externs.unsafe_output_bytes stdout sfix 0 slen;
     Externs.unsafe_output_char stdout lastchar;
     Externs.unsafe_flush stdout
-  in
+  in *)
 
-  let finalbuf = Bytes.create 20 in
+  (* let finalbuf = Bytes.create 20 in
 
   let fff str =
     let _, charlist = vclen_charlist str in
@@ -209,19 +301,7 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
           (loop [@tailcall]) t
     in
     loop maxd
-  in
-
-  let loopandprint pwlist =
-    let rec loop = function
-      | [] -> ()
-      | h :: t ->
-          fff h;
-          Externs.caml_clock_nanosleep sleep;
-          (loop [@tailcall]) t
-    in
-    loop pwlist
-  in
-  loopandprint finaltex;
+  in *)
 
   (* let bytesofutfchars str visualchars =
     let bytelen, _ =
