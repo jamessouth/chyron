@@ -168,38 +168,6 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
   print_endline
     (List.to_string ~f:(fun j -> List.to_string ~f:Fn.id j) finaltex);
 
-  (* let make_fast_worker ~max_count st =
-    Sequence.unfold
-      ~init:(Generating (0, " "))
-      ~f:(fun state ->
-        match state with
-        | Generating (i, s) ->
-            if i > max_count then
-              let final_msg = Finished st in
-              Some (final_msg, Done)
-            else
-              let value = Yielded s in
-              Some (value, Generating (i + 1, String.of_char (Random.ascii ())))
-        | Done -> None)
-  in *)
-
-  (* let rec step_all_generators active_sequences =
-    match active_sequences with
-    | [] -> printf "All fast generators have completed!\n"
-    | seqs ->
-        let remaining_seqs =
-          List.filter_map seqs ~f:(fun seq ->
-              match Sequence.next seq with
-              | None -> None
-              | Some (item, next_seq) ->
-                  (match item with
-                  | Yielded value -> printf "%s" value
-                  | Finished final_msg -> printf " EVENT: %s\n" final_msg);
-                  Some next_seq)
-        in
-        Core_unix.nanosleep 1. |> ignore;
-        step_all_generators remaining_seqs
-  in *)
   let ltrs =
     Array.of_list
       [ "a"; "v"; "h"; "w"; "t"; "u"; "z"; "A"; "E"; "T"; "C"; "P"; "2"; "6" ]
@@ -216,7 +184,7 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
   let rec run_infinite_workers workers iterations_left =
     (* List.iter workers ~f:(fun x -> Printf.printf "%d" x.count);
     print_endline ""; *)
-    if iterations_left <= 0 then print_endline "Stopping loop simulation."
+    if iterations_left <= 0 then ()
     else
       let stepped = List.map workers ~f:worker_step in
 
@@ -231,27 +199,31 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
 
       let line = String.concat ~sep:"" outputs in
       Printf.printf "%s\r%!" line;
-      Core_unix.nanosleep 0.08 |> ignore;
+      Core_unix.nanosleep 0.01 |> ignore;
       run_infinite_workers next_workers (iterations_left - 1)
   in
 
   let loopandprint pwlist =
-    let rec loop = function
-      | [] -> ()
-      | h :: t ->
-          let generators =
-            List.map
-              ~f:(fun x ->
-                let count = 12 + Random.int 70 in
-                { letter = x; count; status = Active })
-              h
-          in
-          run_infinite_workers generators 90;
-          (* step_all_generators ; *)
-          Externs.caml_clock_nanosleep sleep;
-          (loop [@tailcall]) t
+    let pwlen = List.length pwlist in
+    let indexes = Array.of_list pwlist in
+    let maxcount = pwlen * cycles in
+
+    let rec loop ticks =
+      if ticks >= maxcount then ()
+      else begin
+        let generators =
+          List.map
+            ~f:(fun x ->
+              let count = 12 + Random.int 70 in
+              { letter = x; count; status = Active })
+            (Array.unsafe_get indexes (ticks % pwlen))
+        in
+        run_infinite_workers generators 90;
+        Externs.caml_clock_nanosleep sleep;
+        (loop [@tailcall]) (succ ticks)
+      end
     in
-    loop pwlist
+    loop 0
   in
   ();
 
@@ -278,29 +250,6 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
     Externs.unsafe_output_bytes stdout sfix 0 slen;
     Externs.unsafe_output_char stdout lastchar;
     Externs.unsafe_flush stdout
-  in *)
-
-  (* let finalbuf = Bytes.create 20 in
-
-  let fff str =
-    let _, charlist = vclen_charlist str in
-    let bl, dl =
-      List.unzip
-        (List.map (List.rev charlist) ~f:(fun x ->
-             (Bytes.of_string x, Random.int_incl 2 4)))
-    in
-    let maxd = 4 in
-
-    let rec loop tix =
-      match tix with
-      | 0 -> ()
-      | _ ->
-          print b;
-          print_endline (string_of_int d);
-          Externs.caml_clock_nanosleep 800;
-          (loop [@tailcall]) t
-    in
-    loop maxd
   in *)
 
   (* let bytesofutfchars str visualchars =
