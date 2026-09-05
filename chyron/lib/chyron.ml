@@ -72,13 +72,13 @@ module Justify = struct
 end
 
 type universalflags = {
-  cycles : int;
   prefix : string;
-  sleep : int;
   suffix : string;
   terminator : Terminator.t;
   width : int;
 }
+
+type scrollbounceflags = { cycles : int; sleep : int }
 
 type bounceflags = {
   endcap_char : char;
@@ -90,17 +90,19 @@ type bounceflags = {
 type scrollflags = { direction : Direction.t; scroll_mode : Scroll_mode.t }
 
 type splitflapflags = {
+  sfcycles : int;
   flip_hi_bound : int;
   flip_lo_bound : int;
   flip_sleep : int;
   justify : Justify.t;
+  sfsleep : int;
 }
 
 type worker_status = Active | Terminal
 type worker = { letter : string; count : int; status : worker_status }
 
-let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
-    { justify; flip_sleep; flip_hi_bound; flip_lo_bound } =
+let run_split_flap text { prefix; suffix; terminator; width }
+    { sfcycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sfsleep } =
   let vclen_charlist str =
     let tl, cl =
       Uuseg_string.fold_utf_8 `Grapheme_cluster
@@ -172,6 +174,10 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
   print_endline
     (List.to_string ~f:(fun j -> List.to_string ~f:Fn.id j) finaltex);
 
+  let lastchar =
+    match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
+  in
+
   let ltrs =
     Array.of_list
       [ "a"; "v"; "h"; "w"; "t"; "u"; "z"; "A"; "E"; "T"; "C"; "P"; "2"; "6" ]
@@ -202,7 +208,7 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
       in
 
       let line = String.concat ~sep:"" outputs in
-      Printf.printf "%s\r%!" line;
+      Printf.printf "%s%c%!" line lastchar;
       Externs.caml_clock_nanosleep flip_sleep;
       run_infinite_workers next_workers (iterations_left - 1)
   in
@@ -222,12 +228,12 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
             (Array.unsafe_get lines idx)
         in
         run_infinite_workers generators (succ flip_hi_bound);
-        Externs.caml_clock_nanosleep sleep;
+        Externs.caml_clock_nanosleep sfsleep;
         let nidx = if idx = pred pwlen then 0 else succ idx in
         (loop [@tailcall]) (pred ticks) nidx
       end
     in
-    loop (pwlen * cycles) 0
+    loop (pwlen * sfcycles) 0
   in
   ();
 
@@ -304,7 +310,7 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
       Externs.unsafe_output_char stdout '\n';
       Externs.unsafe_flush stdout
 
-let run_scroll text { cycles; prefix; sleep; suffix; terminator; width }
+let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
     { direction; scroll_mode } { endcap_char; endcap_len; rest; scroll_unit } =
   let vclen_charlist str =
     let tl, cl =
@@ -468,7 +474,7 @@ let run_scroll text { cycles; prefix; sleep; suffix; terminator; width }
       Externs.unsafe_output_char stdout '\n';
       Externs.unsafe_flush stdout
 
-let run_bounce text { cycles; prefix; sleep; suffix; terminator; width }
+let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
     { endcap_char; endcap_len; rest; scroll_unit } =
   let vclen_charlist str =
     let tl, cl =

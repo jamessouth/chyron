@@ -2,18 +2,10 @@ open Chyron
 (* open Core_bench *)
 
 let uflags =
-  let%map_open.Command cycles =
-    flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.zeroplus
-      (fun x -> Core.Int.sexp_of_t x)
-      ~default:65_536 ~doc:"int number of scroll cycles of TEXT\n"
-  and prefix =
+  let%map_open.Command prefix =
     flag_optional_with_default_doc "--prefix" ~aliases:[ "-p" ] string
       (fun x -> Core.String.sexp_of_t x)
       ~default:"" ~doc:"string prefix TEXT at left of display\n"
-  and sleep =
-    flag_optional_with_default_doc "--sleep" ~aliases:[ "-sl" ] Ints.oneplus
-      (fun x -> Core.Int.sexp_of_t x)
-      ~default:300 ~doc:"int sleep in ms per scroll of TEXT\n"
   and suffix =
     flag_optional_with_default_doc "--suffix" ~aliases:[ "-su" ] string
       (fun x -> Core.String.sexp_of_t x)
@@ -27,7 +19,19 @@ let uflags =
       (fun x -> Core.Int.sexp_of_t x)
       ~default:15 ~doc:"int display width of TEXT, exclusive of {pre,suf}fix\n"
   in
-  { cycles; prefix; sleep; suffix; terminator; width }
+  { prefix; suffix; terminator; width }
+
+let sbflags =
+  let%map_open.Command cycles =
+    flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.oneplus
+      (fun x -> Core.Int.sexp_of_t x)
+      ~default:65_536 ~doc:"int number of scroll cycles of TEXT\n"
+  and sleep =
+    flag_optional_with_default_doc "--sleep" ~aliases:[ "-sl" ] Ints.oneplus
+      (fun x -> Core.Int.sexp_of_t x)
+      ~default:300 ~doc:"int sleep in ms per scroll of TEXT\n"
+  in
+  { cycles; sleep }
 
 let bflags =
   let%map_open.Command endcap_char =
@@ -63,27 +67,37 @@ let scflags =
   { direction; scroll_mode }
 
 let sfflags =
-  let%map_open.Command flip_hi_bound =
+  let%map_open.Command sfcycles =
+    flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.oneplus
+      (fun x -> Core.Int.sexp_of_t x)
+      ~default:65_536 ~doc:"int number of cycles through TEXT\n"
+  and flip_hi_bound =
     flag_optional_with_default_doc "--flip-hi-bound" ~aliases:[ "-fh" ]
       Ints.twoplus
       (fun x -> Core.Int.sexp_of_t x)
-      ~default:30 ~doc:"int high bound for number of char flips\n"
+      ~default:50 ~doc:"int char flips high bound per character position\n"
   and flip_lo_bound =
     flag_optional_with_default_doc "--flip-lo-bound" ~aliases:[ "-fl" ]
       Ints.zeroplus
       (fun x -> Core.Int.sexp_of_t x)
-      ~default:10 ~doc:"int low bound for number of char flips\n"
+      ~default:20 ~doc:"int char flips low bound per character position\n"
   and flip_sleep =
     flag_optional_with_default_doc "--flip-sleep" ~aliases:[ "-fs" ]
       Ints.oneplus
       (fun x -> Core.Int.sexp_of_t x)
-      ~default:80 ~doc:"int sleep in ms per char flip\n"
+      ~default:60 ~doc:"int sleep in ms per char flip\n"
   and justify =
     flag_optional_with_default_doc "--justify" ~aliases:[ "-j" ] Justify.arg
       Justify.sexp_of_t ~default:Justify.Center
       ~doc:"string align TEXT to left, right, or center\n"
+  and sfsleep =
+    flag_optional_with_default_doc "--sleep" ~aliases:[ "-sl" ] Ints.oneplus
+      (fun x -> Core.Int.sexp_of_t x)
+      ~default:1500 ~doc:"int sleep in ms per line after char flips complete\n"
   in
-  { flip_hi_bound; flip_lo_bound; flip_sleep; justify }
+  if flip_hi_bound < flip_lo_bound then
+    invalid_arg "flip_hi_bound is less than flip_lo_bound";
+  { sfcycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sfsleep }
 
 let scroll =
   Command.basic ~summary:"scroll mode summary"
@@ -91,9 +105,10 @@ let scroll =
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags
+     and sbflags
      and scflags
      and bflags in
-     fun () -> run_scroll text uflags scflags bflags)
+     fun () -> run_scroll text uflags sbflags scflags bflags)
 
 let bounce =
   Command.basic ~summary:"bounce mode summary"
@@ -101,8 +116,9 @@ let bounce =
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags
+     and sbflags
      and bflags in
-     fun () -> run_bounce text uflags bflags)
+     fun () -> run_bounce text uflags sbflags bflags)
 
 let split_flap =
   Command.basic ~summary:"split-flap mode summary"
