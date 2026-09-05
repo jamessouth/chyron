@@ -87,16 +87,20 @@ type bounceflags = {
   scroll_unit : Scroll_unit.t;
 }
 
-type splitflapflags = { justify : Justify.t }
 type scrollflags = { direction : Direction.t; scroll_mode : Scroll_mode.t }
-(* type stream_element = Yielded of string | Finished of string
-type worker_state = Generating of int * string | Done *)
+
+type splitflapflags = {
+  flip_hi_bound : int;
+  flip_lo_bound : int;
+  flip_sleep : int;
+  justify : Justify.t;
+}
 
 type worker_status = Active | Terminal
 type worker = { letter : string; count : int; status : worker_status }
 
 let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
-    { justify } =
+    { justify; flip_sleep; flip_hi_bound; flip_lo_bound } =
   let vclen_charlist str =
     let tl, cl =
       Uuseg_string.fold_utf_8 `Grapheme_cluster
@@ -199,31 +203,31 @@ let run_split_flap text { cycles; prefix; sleep; suffix; terminator; width }
 
       let line = String.concat ~sep:"" outputs in
       Printf.printf "%s\r%!" line;
-      Core_unix.nanosleep 0.01 |> ignore;
+      Externs.caml_clock_nanosleep flip_sleep;
       run_infinite_workers next_workers (iterations_left - 1)
   in
 
   let loopandprint pwlist =
     let pwlen = List.length pwlist in
-    let indexes = Array.of_list pwlist in
-    let maxcount = pwlen * cycles in
+    let lines = Array.of_list pwlist in
 
-    let rec loop ticks =
-      if ticks >= maxcount then ()
+    let rec loop ticks idx =
+      if ticks <= 0 then ()
       else begin
         let generators =
           List.map
             ~f:(fun x ->
-              let count = 12 + Random.int 70 in
+              let count = Random.int_incl flip_lo_bound flip_hi_bound in
               { letter = x; count; status = Active })
-            (Array.unsafe_get indexes (ticks % pwlen))
+            (Array.unsafe_get lines idx)
         in
-        run_infinite_workers generators 90;
+        run_infinite_workers generators (succ flip_hi_bound);
         Externs.caml_clock_nanosleep sleep;
-        (loop [@tailcall]) (succ ticks)
+        let nidx = if idx = pred pwlen then 0 else succ idx in
+        (loop [@tailcall]) (pred ticks) nidx
       end
     in
-    loop 0
+    loop (pwlen * cycles) 0
   in
   ();
 

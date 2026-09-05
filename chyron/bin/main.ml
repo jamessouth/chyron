@@ -63,12 +63,27 @@ let scflags =
   { direction; scroll_mode }
 
 let sfflags =
-  let%map_open.Command justify =
+  let%map_open.Command flip_hi_bound =
+    flag_optional_with_default_doc "--flip-hi-bound" ~aliases:[ "-fh" ]
+      Ints.twoplus
+      (fun x -> Core.Int.sexp_of_t x)
+      ~default:30 ~doc:"int high bound for number of char flips\n"
+  and flip_lo_bound =
+    flag_optional_with_default_doc "--flip-lo-bound" ~aliases:[ "-fl" ]
+      Ints.zeroplus
+      (fun x -> Core.Int.sexp_of_t x)
+      ~default:10 ~doc:"int low bound for number of char flips\n"
+  and flip_sleep =
+    flag_optional_with_default_doc "--flip-sleep" ~aliases:[ "-fs" ]
+      Ints.oneplus
+      (fun x -> Core.Int.sexp_of_t x)
+      ~default:80 ~doc:"int sleep in ms per char flip\n"
+  and justify =
     flag_optional_with_default_doc "--justify" ~aliases:[ "-j" ] Justify.arg
       Justify.sexp_of_t ~default:Justify.Center
       ~doc:"string align TEXT to left, right, or center\n"
   in
-  { justify }
+  { flip_hi_bound; flip_lo_bound; flip_sleep; justify }
 
 let scroll =
   Command.basic ~summary:"scroll mode summary"
