@@ -305,6 +305,27 @@ This pattern gives you complete control over your hardware execution profiles, e
 Would you like to explore:
 How to decouple the printing engine so processing code runs strictly out of your CPU's L1 data cacheHow to integrate a non-blocking scheduling system using OCaml 5 multi-core effects (Eio) to process ticks
 
+
+ Performance counter stats for './_build/default/bin/main.exe split-flap m😖ry had a little lamb -c 1 -w 7 -sl 1000 -j left -t return' (10 runs):
+
+                 0      context-switches:u               #      0.0 cs/sec  cs_per_second     
+                 0      cpu-migrations:u                 #      0.0 migrations/sec  migrations_per_second
+             1,637      page-faults:u                    #  36054.7 faults/sec  page_faults_per_second  ( +-  0.02% )
+             45.40 msec task-clock:u                     #      nan CPUs  CPUs_utilized         ( +-  1.75% )
+           337,171      L1-dcache-load-misses:u          #      6.2 %  l1d_miss_rate            ( +-  5.85% )  (28.80%)
+           140,842      LLC-loads:u                      #     64.5 %  llc_miss_rate            ( +-  8.28% )  (12.78%)
+           100,736      branch-misses:u                  #      3.0 %  branch_miss_rate         ( +-  8.06% )  (34.05%)
+         2,849,498      branches:u                       #     62.8 M/sec  branch_frequency     ( +- 14.93% )  (33.75%)
+        22,488,926      cpu-cycles:u                     #      0.5 GHz  cycles_frequency       ( +-  5.18% )  (44.61%)
+        14,298,735      instructions:u                   #      0.6 instructions  insn_per_cycle  ( +-  8.78% )  (58.42%)
+
+      16.313762010 +- 0.001460874 seconds time elapsed  ( +-  0.01% )
+
+
+
+
+
+
 To ensure your core state processing loops execute inside your CPU's L1 data cache (which operates at sub-nanosecond speeds), you must remove all I/O or system operations like printf from the critical processing loop.
 System calls, string formatters, and formatting engines completely blow out your L1 cache line because they pull in massive external instructions and allocations.
 To decouple the two, you can implement a Lock-Free Single-Producer Single-Consumer (SPSC) Ring Buffer using OCaml arrays. The processing loop writes raw binary data to the contiguous buffer, and a separate background thread handles formatting and printing.

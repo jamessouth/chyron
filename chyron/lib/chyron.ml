@@ -98,8 +98,7 @@ type splitflapflags = {
   sfsleep : int;
 }
 
-type worker_status = Active | Terminal
-type worker = { letter : string; count : int; status : worker_status }
+type worker = { letter : string; count : int }
 
 let run_split_flap text { prefix; suffix; terminator; width }
     { sfcycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sfsleep } =
@@ -183,29 +182,21 @@ let run_split_flap text { prefix; suffix; terminator; width }
       [ "a"; "v"; "h"; "w"; "t"; "u"; "z"; "A"; "E"; "T"; "C"; "P"; "2"; "6" ]
   in
   let lenn = Array.length ltrs in
-  let worker_step w =
-    match w.status with
-    | Terminal -> Some (w.letter, w)
-    | Active ->
-        if w.count <= 0 then Some (w.letter, { w with status = Terminal })
-        else Some (ltrs.(Random.int lenn), { w with count = w.count - 1 })
-  in
 
   let rec run_infinite_workers workers iterations_left =
     (* List.iter workers ~f:(fun x -> Printf.printf "%d" x.count);
     print_endline ""; *)
     if iterations_left <= 0 then ()
     else
-      let stepped = List.map workers ~f:worker_step in
+      let stepped =
+        List.map workers ~f:(fun w ->
+            if w.count <= 0 then (w.letter, w)
+            else (ltrs.(Random.int lenn), { w with count = w.count - 1 }))
+      in
 
-      let outputs =
-        List.map stepped ~f:(function Some (v, _) -> v | None -> assert false)
-      in
-      let next_workers =
-        List.map stepped ~f:(function
-          | Some (_, next_w) -> next_w
-          | None -> assert false)
-      in
+      let outputs = List.map stepped ~f:(function x -> fst x) in
+
+      let next_workers = List.map stepped ~f:(function x -> snd x) in
 
       let line = String.concat ~sep:"" outputs in
       Printf.printf "%s%c%!" line lastchar;
@@ -224,7 +215,7 @@ let run_split_flap text { prefix; suffix; terminator; width }
           List.map
             ~f:(fun x ->
               let count = Random.int_incl flip_lo_bound flip_hi_bound in
-              { letter = x; count; status = Active })
+              { letter = x; count })
             (Array.unsafe_get lines idx)
         in
         run_infinite_workers generators (succ flip_hi_bound);
