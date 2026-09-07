@@ -98,8 +98,6 @@ type splitflapflags = {
   sfsleep : int;
 }
 
-type worker = { letter : string; count : int }
-
 let run_split_flap text { prefix; suffix; terminator; width }
     { sfcycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sfsleep } =
   let vclen_charlist str =
@@ -183,25 +181,22 @@ let run_split_flap text { prefix; suffix; terminator; width }
   in
   let lenn = Array.length ltrs in
 
-  let rec run_infinite_workers workers iterations_left =
+  let rec run_infinite_workers counts letters iterations_left =
     (* List.iter workers ~f:(fun x -> Printf.printf "%d" x.count);
     print_endline ""; *)
     if iterations_left <= 0 then ()
     else
-      let stepped =
-        List.map workers ~f:(fun w ->
-            if w.count <= 0 then (w.letter, w)
-            else (ltrs.(Random.int lenn), { w with count = w.count - 1 }))
+      let outputs =
+        List.map2_exn counts letters ~f:(fun c l ->
+            if c < 1 then l else ltrs.(Random.int lenn))
       in
 
-      let outputs = List.map stepped ~f:(function x -> fst x) in
-
-      let next_workers = List.map stepped ~f:(function x -> snd x) in
+      let next_workers = List.map counts ~f:pred in
 
       let line = String.concat ~sep:"" outputs in
       Printf.printf "%s%c%!" line lastchar;
       Externs.caml_clock_nanosleep flip_sleep;
-      run_infinite_workers next_workers (iterations_left - 1)
+      run_infinite_workers next_workers letters (iterations_left - 1)
   in
 
   let loopandprint pwlist =
@@ -211,14 +206,11 @@ let run_split_flap text { prefix; suffix; terminator; width }
     let rec loop ticks idx =
       if ticks <= 0 then ()
       else begin
-        let generators =
-          List.map
-            ~f:(fun x ->
-              let count = Random.int_incl flip_lo_bound flip_hi_bound in
-              { letter = x; count })
-            (Array.unsafe_get lines idx)
-        in
-        run_infinite_workers generators (succ flip_hi_bound);
+        run_infinite_workers
+          (List.init width ~f:(fun _ ->
+               Random.int_incl flip_lo_bound flip_hi_bound))
+          (Array.unsafe_get lines idx)
+          (succ flip_hi_bound);
         Externs.caml_clock_nanosleep sfsleep;
         let nidx = if idx = pred pwlen then 0 else succ idx in
         (loop [@tailcall]) (pred ticks) nidx
