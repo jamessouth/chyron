@@ -115,10 +115,10 @@ let run_split_flap text { prefix; suffix; terminator; width }
     | h :: t -> List.append (List.append h sep) (list_concat ~sep t)
   in
 
-  let breakdown txtt =
+  let breakdown txt =
     let ltt =
       List.rev
-        (List.fold txtt ~init:[] ~f:(fun acc x ->
+        (List.fold txt ~init:[] ~f:(fun acc x ->
              let _, lt = vclen_charlist x in
              lt :: acc))
     in
@@ -193,6 +193,16 @@ let run_split_flap text { prefix; suffix; terminator; width }
       [ "a"; "v"; "h"; "w"; "t"; "u"; "z"; "A"; "E"; "T"; "C"; "P"; "2"; "6" ]
   in
   let lenn = Array.length ltrs in
+
+  let a = String.concat text in
+  let b = String.length a in
+  let _, c = vclen_charlist a in
+  let d = List.length c in
+  let e = b - d in
+
+  print_endline (string_of_int e);
+
+  let buffer = Bytes.create ((width lsl 2) + e) in
 
   let rec run_infinite_workers counts letters iterations_left =
     (* List.iter workers ~f:(fun x -> Printf.printf "%d" x.count);
