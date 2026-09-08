@@ -78,7 +78,7 @@ type universalflags = {
   width : int;
 }
 
-type scrollbounceflags = { cycles : int; sleep : int }
+type scrollflags = { direction : Direction.t; scroll_mode : Scroll_mode.t }
 
 type bounceflags = {
   endcap_char : char;
@@ -87,7 +87,7 @@ type bounceflags = {
   scroll_unit : Scroll_unit.t;
 }
 
-type scrollflags = { direction : Direction.t; scroll_mode : Scroll_mode.t }
+type scrollbounceflags = { cycles : int; sleep : int }
 
 type splitflapflags = {
   sfcycles : int;
@@ -98,17 +98,11 @@ type splitflapflags = {
   sfsleep : int;
 }
 
+let uc_charlist str =
+  Uuseg_string.fold_utf_8 `Grapheme_cluster (fun acc char -> char :: acc) [] str
+
 let run_split_flap text { prefix; suffix; terminator; width }
     { sfcycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sfsleep } =
-  let vclen_charlist str =
-    let tl, cl =
-      Uuseg_string.fold_utf_8 `Grapheme_cluster
-        (fun (tlacc, clacc) char -> (succ tlacc, char :: clacc))
-        (0, []) str
-    in
-    (tl, List.rev cl)
-  in
-
   let rec list_concat ~sep = function
     | [] -> []
     | [ s ] -> s
@@ -119,7 +113,7 @@ let run_split_flap text { prefix; suffix; terminator; width }
     let ltt =
       List.rev
         (List.fold txt ~init:[] ~f:(fun acc x ->
-             let _, lt = vclen_charlist x in
+             let lt = List.rev (uc_charlist x) in
              lt :: acc))
     in
     let rec loop txt =
@@ -196,13 +190,26 @@ let run_split_flap text { prefix; suffix; terminator; width }
 
   let a = String.concat text in
   let b = String.length a in
-  let _, c = vclen_charlist a in
+  let c = uc_charlist a in
   let d = List.length c in
   let e = b - d in
 
   print_endline (string_of_int e);
 
   let buffer = Bytes.create ((width lsl 2) + e) in
+  let pfix = Bytes.of_string prefix in
+  let plen = Bytes.length pfix in
+  let sfix = Bytes.of_string suffix in
+  let slen = Bytes.length sfix in
+  let print pos wid =
+    (* print_endline (string_of_int pos);
+    print_endline (string_of_int wid); *)
+    Externs.unsafe_output_bytes stdout pfix 0 plen;
+    Externs.unsafe_output_bytes stdout buffer pos wid;
+    Externs.unsafe_output_bytes stdout sfix 0 slen;
+    Externs.unsafe_output_char stdout lastchar;
+    Externs.unsafe_flush stdout
+  in
 
   let rec run_infinite_workers counts letters iterations_left =
     (* List.iter workers ~f:(fun x -> Printf.printf "%d" x.count);
@@ -214,12 +221,15 @@ let run_split_flap text { prefix; suffix; terminator; width }
             if c < 1 then l else ltrs.(Random.int lenn))
       in
 
-      let next_workers = List.map counts ~f:pred in
-
       let line = String.concat ~sep:"" outputs in
-      Printf.printf "%s%c%!" line lastchar;
+      let llen = String.length line in
+      Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer ~dst_pos:0
+        ~len:llen;
+
+      print 0 llen;
       Externs.caml_clock_nanosleep flip_sleep;
-      run_infinite_workers next_workers letters (iterations_left - 1)
+      run_infinite_workers (List.map counts ~f:pred) letters
+        (pred iterations_left)
   in
 
   let loopandprint pwlist =
@@ -245,71 +255,6 @@ let run_split_flap text { prefix; suffix; terminator; width }
 
   loopandprint finaltex;
 
-  (* let joined_text = String.concat ~sep:" " text in
-    let _jointextlen = String.length joined_text in
-  let visual_chars, _ = vclen_charlist joined_text in
-  let _width_minus_visual_chars = width - visual_chars in
-  let joined_bytes = Bytes.of_string joined_text in *)
-  (* let lastchar =
-    match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
-  in
-  let pfix = Bytes.of_string prefix in
-  let plen = Bytes.length pfix in
-  let sfix = Bytes.of_string suffix in
-  let slen = Bytes.length sfix in *)
-  (* let print finalt =
-    (* let finaltext = Bytes.of_string finalt in *)
-    (* print_endline (string_of_int pos);
-    print_endline (string_of_int wid); *)
-    Externs.unsafe_output_bytes stdout pfix 0 plen;
-    Externs.unsafe_output_bytes stdout finalt 0 width;
-    Externs.unsafe_output_bytes stdout sfix 0 slen;
-    Externs.unsafe_output_char stdout lastchar;
-    Externs.unsafe_flush stdout
-  in *)
-
-  (* let bytesofutfchars str visualchars =
-    let bytelen, _ =
-      Uuseg_string.fold_utf_8 `Grapheme_cluster
-        (fun (bytecount, charcount) char ->
-          if charcount >= visualchars then (bytecount, charcount)
-          else (bytecount + String.length char, succ charcount))
-        (0, 0) str
-    in
-    bytelen
-  in
-  let _, charlist = vclen_charlist (Bytes.to_string finaltext) in
-  let revcharlist = List.rev charlist in
-  let totallen = Bytes.length finaltext in
-  let _lenminuswidth =
-    totallen - bytesofutfchars (String.concat charlist) width
-  in
-  let _halflen = totallen asr 1 in
-  let ucinds rev cl sptfn accfn =
-    let rec loop pos acc = function
-      | [] -> if rev then List.rev acc else acc
-      | h :: t ->
-          let lt = h :: t in
-          let str = String.concat lt in
-          let bts = bytesofutfchars str width in
-          let l, r = List.split_n lt (sptfn lt) in
-          loop (String.length (String.concat l) + pos) (accfn str bts pos acc) r
-    in
-    loop 0 [] cl
-  in
-  let wordsplitfn chr =
-    succ (List.length (List.take_while chr ~f:(fun s -> String.( <> ) s " ")))
-  in
-  let accmfn _ bts pos acc = (pos, bts) :: acc in
-  let _brword =
-    ucinds true charlist wordsplitfn (fun str bts _ acc ->
-        (String.length str - bts, bts) :: acc)
-  in
-  let _blchar = ucinds true revcharlist (fun _ -> 1) accmfn in
-  let _blword = ucinds true revcharlist wordsplitfn accmfn in
-  let _rchar = ucinds false revcharlist (fun _ -> 1) accmfn in
-  let _takeappend r l = List.append l (List.take r 1) in
-  (); *)
   match terminator with
   | Newline -> ()
   | _ ->
@@ -318,17 +263,9 @@ let run_split_flap text { prefix; suffix; terminator; width }
 
 let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
     { direction; scroll_mode } { endcap_char; endcap_len; rest; scroll_unit } =
-  let vclen_charlist str =
-    let tl, cl =
-      Uuseg_string.fold_utf_8 `Grapheme_cluster
-        (fun (tlacc, clacc) char -> (succ tlacc, char :: clacc))
-        (0, []) str
-    in
-    (tl, cl)
-  in
   let joined_text = String.concat ~sep:" " text in
   let jointextlen = String.length joined_text in
-  let visual_chars, _ = vclen_charlist joined_text in
+  let visual_chars = List.length (uc_charlist joined_text) in
   let width_minus_visual_chars = width - visual_chars in
   let ecl =
     Int.clamp_exn
@@ -405,7 +342,7 @@ let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
     in
     bytelen
   in
-  let _, charlist = vclen_charlist (Bytes.to_string finaltext) in
+  let charlist = uc_charlist (Bytes.to_string finaltext) in
   let revcharlist = List.rev charlist in
   let totallen = Bytes.length finaltext in
   let lenminuswidth =
@@ -482,17 +419,9 @@ let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
 
 let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
     { endcap_char; endcap_len; rest; scroll_unit } =
-  let vclen_charlist str =
-    let tl, cl =
-      Uuseg_string.fold_utf_8 `Grapheme_cluster
-        (fun (tlacc, clacc) char -> (succ tlacc, char :: clacc))
-        (0, []) str
-    in
-    (tl, cl)
-  in
   let joined_text = String.concat ~sep:" " text in
   let jointextlen = String.length joined_text in
-  let visual_chars, _ = vclen_charlist joined_text in
+  let visual_chars = List.length (uc_charlist joined_text) in
   let width_minus_visual_chars = width - visual_chars in
   let ecl = Int.max 0 width_minus_visual_chars in
   let ecp = Bytes.make ecl endcap_char in
@@ -562,7 +491,7 @@ let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
     in
     bytelen
   in
-  let _, charlist = vclen_charlist (Bytes.to_string finaltext) in
+  let charlist = uc_charlist (Bytes.to_string finaltext) in
   let revcharlist = List.rev charlist in
   let totallen = Bytes.length finaltext in
   let lenminuswidth =
@@ -613,3 +542,4 @@ let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
   | _ ->
       Externs.unsafe_output_char stdout '\n';
       Externs.unsafe_flush stdout
+(* 566 *)

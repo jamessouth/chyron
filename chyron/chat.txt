@@ -338,6 +338,21 @@ How to decouple the printing engine so processing code runs strictly out of your
       16.310887308 +- 0.000950479 seconds time elapsed  ( +-  0.01% )
 
 
+ Performance counter stats for './_build/default/bin/main.exe split-flap m😖ry had a little lamb -c 1 -w 7 -sl 1000 -j left -t return' (10 runs):
+
+                 0      context-switches:u               #      0.0 cs/sec  cs_per_second     
+                 0      cpu-migrations:u                 #      0.0 migrations/sec  migrations_per_second
+             1,620      page-faults:u                    #  37555.9 faults/sec  page_faults_per_second  ( +-  0.17% )
+             43.14 msec task-clock:u                     #      nan CPUs  CPUs_utilized         ( +-  1.92% )
+           369,329      L1-dcache-load-misses:u          #      6.1 %  l1d_miss_rate            ( +-  6.08% )  (34.28%)
+           104,614      LLC-loads:u                      #     70.0 %  llc_miss_rate            ( +-  6.63% )  (15.99%)
+            86,866      branch-misses:u                  #      3.0 %  branch_miss_rate         ( +-  9.98% )  (27.98%)
+         2,827,628      branches:u                       #     65.6 M/sec  branch_frequency     ( +- 13.75% )  (26.97%)
+        17,563,877      cpu-cycles:u                     #      0.4 GHz  cycles_frequency       ( +-  7.24% )  (37.79%)
+        14,379,921      instructions:u                   #      0.8 instructions  insn_per_cycle  ( +-  6.89% )  (49.73%)
+
+      16.307481367 +- 0.001003086 seconds time elapsed  ( +-  0.01% )
+
 
 To ensure your core state processing loops execute inside your CPU's L1 data cache (which operates at sub-nanosecond speeds), you must remove all I/O or system operations like printf from the critical processing loop.
 System calls, string formatters, and formatting engines completely blow out your L1 cache line because they pull in massive external instructions and allocations.
