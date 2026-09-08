@@ -115,14 +115,27 @@ let run_split_flap text { prefix; suffix; terminator; width }
     | h :: t -> List.append (List.append h sep) (list_concat ~sep t)
   in
 
-  let breakdown txt =
-    List.rev
-      (List.fold txt ~init:[] ~f:(fun acc x ->
-           let vis, lt = vclen_charlist x in
-           if vis > width then
-             let l, r = List.split_n lt (List.length lt asr 1) in
-             r :: l :: acc
-           else lt :: acc))
+  let breakdown txtt =
+    let ltt =
+      List.rev
+        (List.fold txtt ~init:[] ~f:(fun acc x ->
+             let _, lt = vclen_charlist x in
+             lt :: acc))
+    in
+    let rec loop txt =
+      print_endline (List.to_string ~f:Fn.id (List.map txt ~f:String.concat));
+      match List.for_all txt ~f:(fun x -> List.length x <= width) with
+      | true -> txt
+      | false ->
+          loop
+            (List.fold (List.rev txt) ~init:[] ~f:(fun acc x ->
+                 let vis = List.length x in
+                 if vis > width then
+                   let l, r = List.split_n x (List.length x asr 1) in
+                   l :: r :: acc
+                 else x :: acc))
+    in
+    loop ltt
   in
 
   let buildup txt =
@@ -167,7 +180,7 @@ let run_split_flap text { prefix; suffix; terminator; width }
               ])
   in
 
-  let finaltex = pad (buildup (breakdown text)) in
+  let finaltex = text |> breakdown |> buildup |> pad in
   print_endline
     (List.to_string ~f:(fun j -> List.to_string ~f:Fn.id j) finaltex);
 
