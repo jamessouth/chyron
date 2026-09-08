@@ -47,12 +47,12 @@ let bflags =
     flag_optional_with_default_doc "--rest" ~aliases:[ "-r" ] Ints.zeroplus
       (fun x -> Core.Int.sexp_of_t x)
       ~default:0 ~doc:"int additional sleep in ms for frames at extremes\n"
-  and scroll_unit =
-    flag_optional_with_default_doc "--scroll-unit" ~aliases:[ "-sc" ]
-      Scroll_unit.arg Scroll_unit.sexp_of_t ~default:Scroll_unit.Char
+  and scroll_len =
+    flag_optional_with_default_doc "--scroll-len" ~aliases:[ "-sc" ]
+      Scroll_len.arg Scroll_len.sexp_of_t ~default:Scroll_len.Char
       ~doc:"string scroll TEXT by character or by word\n"
   in
-  { endcap_char; endcap_len; rest; scroll_unit }
+  { endcap_char; endcap_len; rest; scroll_len }
 
 let scflags =
   let%map_open.Command direction =

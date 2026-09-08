@@ -20,7 +20,7 @@ module Ints = struct
   let twoplus = Command.Arg_type.create (parseint ~min:2)
 end
 
-module Scroll_unit = struct
+module Scroll_len = struct
   type t = Char | Word [@@deriving sexp]
 
   let arg =
@@ -84,7 +84,7 @@ type bounceflags = {
   endcap_char : char;
   endcap_len : int;
   rest : int;
-  scroll_unit : Scroll_unit.t;
+  scroll_len : Scroll_len.t;
 }
 
 type scrollbounceflags = { cycles : int; sleep : int }
@@ -97,6 +97,26 @@ type splitflapflags = {
   justify : Justify.t;
   sfsleep : int;
 }
+
+let univfunc { prefix; suffix; terminator; _ } =
+  (* setting these chars here instead of on the constructors because of the way the help text looks*)
+  let lastchar =
+    match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
+  in
+  let pfix = Bytes.of_string prefix in
+  let plen = Bytes.length pfix in
+  let sfix = Bytes.of_string suffix in
+  let slen = Bytes.length sfix in
+  let print ft pos wid =
+    (* print_endline (string_of_int pos);
+    print_endline (string_of_int wid); *)
+    Externs.unsafe_output_bytes stdout pfix 0 plen;
+    Externs.unsafe_output_bytes stdout ft pos wid;
+    Externs.unsafe_output_bytes stdout sfix 0 slen;
+    Externs.unsafe_output_char stdout lastchar;
+    Externs.unsafe_flush stdout
+  in
+  print
 
 let uc_charlist str =
   Uuseg_string.fold_utf_8 `Grapheme_cluster (fun acc char -> char :: acc) [] str
@@ -178,10 +198,6 @@ let run_split_flap text { prefix; suffix; terminator; width }
   print_endline
     (List.to_string ~f:(fun j -> List.to_string ~f:Fn.id j) finaltex);
 
-  let lastchar =
-    match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
-  in
-
   let ltrs =
     Array.of_list
       [ "a"; "v"; "h"; "w"; "t"; "u"; "z"; "A"; "E"; "T"; "C"; "P"; "2"; "6" ]
@@ -197,19 +213,8 @@ let run_split_flap text { prefix; suffix; terminator; width }
   print_endline (string_of_int e);
 
   let buffer = Bytes.create ((width lsl 2) + e) in
-  let pfix = Bytes.of_string prefix in
-  let plen = Bytes.length pfix in
-  let sfix = Bytes.of_string suffix in
-  let slen = Bytes.length sfix in
-  let print pos wid =
-    (* print_endline (string_of_int pos);
-    print_endline (string_of_int wid); *)
-    Externs.unsafe_output_bytes stdout pfix 0 plen;
-    Externs.unsafe_output_bytes stdout buffer pos wid;
-    Externs.unsafe_output_bytes stdout sfix 0 slen;
-    Externs.unsafe_output_char stdout lastchar;
-    Externs.unsafe_flush stdout
-  in
+
+  let print = univfunc { prefix; suffix; terminator; width } in
 
   let rec run_infinite_workers counts letters iterations_left =
     (* List.iter workers ~f:(fun x -> Printf.printf "%d" x.count);
@@ -226,7 +231,7 @@ let run_split_flap text { prefix; suffix; terminator; width }
       Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer ~dst_pos:0
         ~len:llen;
 
-      print 0 llen;
+      print buffer 0 llen;
       Externs.caml_clock_nanosleep flip_sleep;
       run_infinite_workers (List.map counts ~f:pred) letters
         (pred iterations_left)
@@ -262,7 +267,7 @@ let run_split_flap text { prefix; suffix; terminator; width }
       Externs.unsafe_flush stdout
 
 let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
-    { direction; scroll_mode } { endcap_char; endcap_len; rest; scroll_unit } =
+    { direction; scroll_mode } { endcap_char; endcap_len; rest; scroll_len } =
   let joined_text = String.concat ~sep:" " text in
   let jointextlen = String.length joined_text in
   let visual_chars = List.length (uc_charlist joined_text) in
@@ -280,22 +285,8 @@ let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
     | Left -> Stdlib.Bytes.cat joined_bytes base
     | Right -> Stdlib.Bytes.cat base joined_bytes
   in
-  let lastchar =
-    match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
-  in
-  let pfix = Bytes.of_string prefix in
-  let plen = Bytes.length pfix in
-  let sfix = Bytes.of_string suffix in
-  let slen = Bytes.length sfix in
-  let print pos wid =
-    (* print_endline (string_of_int pos);
-    print_endline (string_of_int wid); *)
-    Externs.unsafe_output_bytes stdout pfix 0 plen;
-    Externs.unsafe_output_bytes stdout finaltext pos wid;
-    Externs.unsafe_output_bytes stdout sfix 0 slen;
-    Externs.unsafe_output_char stdout lastchar;
-    Externs.unsafe_flush stdout
-  in
+  let print = univfunc { prefix; suffix; terminator; width } in
+
   let loopandprint pwlist =
     let pwlen = List.length pwlist in
     let tot = sleep + rest in
@@ -322,7 +313,7 @@ let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
     let rec loop ticks idx =
       if ticks <= 0 then ()
       else begin
-        print
+        print finaltext
           (Array.unsafe_get indexes idx)
           (Array.unsafe_get indexes (succ idx));
         Externs.caml_clock_nanosleep (Array.unsafe_get indexes (idx + 2));
@@ -375,7 +366,7 @@ let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
   let takeappend r l = List.append l (List.take r 1) in
   begin match
     ( direction,
-      scroll_unit,
+      scroll_len,
       scroll_mode,
       Ordering.of_int (compare visual_chars width) )
   with
@@ -418,7 +409,7 @@ let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
       Externs.unsafe_flush stdout
 
 let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
-    { endcap_char; endcap_len; rest; scroll_unit } =
+    { endcap_char; endcap_len; rest; scroll_len } =
   let joined_text = String.concat ~sep:" " text in
   let jointextlen = String.length joined_text in
   let visual_chars = List.length (uc_charlist joined_text) in
@@ -427,22 +418,9 @@ let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
   let ecp = Bytes.make ecl endcap_char in
   let joined_bytes = Bytes.of_string joined_text in
   let finaltext = Stdlib.Bytes.cat (Stdlib.Bytes.cat ecp joined_bytes) ecp in
-  let lastchar =
-    match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
-  in
-  let pfix = Bytes.of_string prefix in
-  let plen = Bytes.length pfix in
-  let sfix = Bytes.of_string suffix in
-  let slen = Bytes.length sfix in
-  let print pos wid =
-    (* print_endline (string_of_int pos);
-    print_endline (string_of_int wid); *)
-    Externs.unsafe_output_bytes stdout pfix 0 plen;
-    Externs.unsafe_output_bytes stdout finaltext pos wid;
-    Externs.unsafe_output_bytes stdout sfix 0 slen;
-    Externs.unsafe_output_char stdout lastchar;
-    Externs.unsafe_flush stdout
-  in
+
+  let print = univfunc { prefix; suffix; terminator; width } in
+
   let loopandprint pwlist =
     let pwlen = List.length pwlist in
     let tot = sleep + rest in
@@ -471,7 +449,7 @@ let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
     let rec loop ticks idx =
       if ticks <= 0 then ()
       else begin
-        print
+        print finaltext
           (Array.unsafe_get indexes idx)
           (Array.unsafe_get indexes (succ idx));
         Externs.caml_clock_nanosleep (Array.unsafe_get indexes (idx + 2));
@@ -520,7 +498,7 @@ let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
   let blchar = ucinds true revcharlist (fun _ -> 1) accmfn in
   let blword = ucinds true revcharlist wordsplitfn accmfn in
   let takeappend r l = List.append l (List.take r 1) in
-  begin match (scroll_unit, Ordering.of_int (compare visual_chars width)) with
+  begin match (scroll_len, Ordering.of_int (compare visual_chars width)) with
   | Char, (Greater | Equal | Less) ->
       let l, r = List.split_while blchar ~f:(fun (a, b) -> a + b < totallen) in
       List.append (takeappend r l) (List.rev (List.drop l 1)) |> loopandprint
