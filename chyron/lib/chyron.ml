@@ -253,36 +253,44 @@ let run_split_flap text { prefix; suffix; terminator; width }
   loopandprint finaltex;
   term
 
-let bytesofutfchars str visualchars =
-  let bytelen, _ =
-    Uuseg_string.fold_utf_8 `Grapheme_cluster
-      (fun (bytecount, charcount) char ->
-        if charcount >= visualchars then (bytecount, charcount)
-        else (bytecount + String.length char, succ charcount))
-      (0, 0) str
-  in
-  bytelen
-
-let ucinds rev cl sptfn accfn wid =
-  let rec loop pos acc = function
-    | [] -> if rev then List.rev acc else acc
-    | h :: t ->
-        let lt = h :: t in
-        let str = String.concat lt in
-        let bts = bytesofutfchars str wid in
-        let l, r = List.split_n lt (sptfn lt) in
-        loop (String.length (String.concat l) + pos) (accfn str bts pos acc) r
-  in
-  loop 0 [] cl
-
-let sbvals text { prefix; suffix; terminator; width } =
+let sbvals text =
   let joined_text = String.concat ~sep:" " text in
-  ( univfunc { prefix; suffix; terminator; width },
-    Bytes.of_string joined_text,
+  ( Bytes.of_string joined_text,
     String.length joined_text,
     List.length (uc_charlist joined_text) )
 
-let sbfunc ltfunc ft print cycles =
+let sbfuncs ltfunc ft { prefix; suffix; terminator; width } cycles =
+  let bytesofutfchars str visualchars =
+    let bytelen, _ =
+      Uuseg_string.fold_utf_8 `Grapheme_cluster
+        (fun (bytecount, charcount) char ->
+          if charcount >= visualchars then (bytecount, charcount)
+          else (bytecount + String.length char, succ charcount))
+        (0, 0) str
+    in
+    bytelen
+  in
+  let ucinds rev cl sptfn accfn wid =
+    let rec loop pos acc = function
+      | [] -> if rev then List.rev acc else acc
+      | h :: t ->
+          let lt = h :: t in
+          let str = String.concat lt in
+          let bts = bytesofutfchars str wid in
+          let l, r = List.split_n lt (sptfn lt) in
+          loop (String.length (String.concat l) + pos) (accfn str bts pos acc) r
+    in
+    loop 0 [] cl
+  in
+  let charlist = uc_charlist (Bytes.to_string ft) in
+  let revcharlist = List.rev charlist in
+  let totallen = Bytes.length ft in
+  let wordsplitfn chr =
+    succ (List.length (List.take_while chr ~f:(fun s -> String.( <> ) s " ")))
+  in
+  let accmfn _ bts pos acc = (pos, bts) :: acc in
+  let takeappend r l = List.append l (List.take r 1) in
+  let print, term = univfunc { prefix; suffix; terminator; width } in
   let loopandprint pwlist =
     let pwlen = List.length pwlist in
     let pwslist = ltfunc pwlist pwlen in
@@ -310,13 +318,22 @@ let sbfunc ltfunc ft print cycles =
     in
     loop (pwlen * cycles) 0
   in
-  loopandprint
+  ( loopandprint,
+    term,
+    totallen - bytesofutfchars (String.concat charlist) width,
+    totallen asr 1,
+    ucinds true charlist wordsplitfn
+      (fun str bts _ acc -> (String.length str - bts, bts) :: acc)
+      width,
+    ucinds true revcharlist (fun _ -> 1) accmfn width,
+    ucinds true revcharlist wordsplitfn accmfn width,
+    ucinds false revcharlist (fun _ -> 1) accmfn width,
+    takeappend,
+    totallen )
 
 let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
     { direction; scroll_mode } { endcap_char; endcap_len; rest; scroll_len } =
-  let (print, term), joined_bytes, jointextlen, visual_chars =
-    sbvals text { prefix; suffix; terminator; width }
-  in
+  let joined_bytes, jointextlen, visual_chars = sbvals text in
   let ecl =
     Int.clamp_exn
       (Int.max endcap_len (width - visual_chars))
@@ -339,27 +356,18 @@ let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
         List.mapi pwlist ~f:(fun i (p, w) ->
             if i = 0 || i = pred pwlen then (p, w, tot) else (p, w, sleep))
   in
-  let loopandprint = sbfunc ltfunc finaltext print cycles in
-  let charlist = uc_charlist (Bytes.to_string finaltext) in
-  let revcharlist = List.rev charlist in
-  let totallen = Bytes.length finaltext in
-  let lenminuswidth =
-    totallen - bytesofutfchars (String.concat charlist) width
+  let ( loopandprint,
+        term,
+        lenminuswidth,
+        halflen,
+        brword,
+        blchar,
+        blword,
+        rchar,
+        takeappend,
+        _ ) =
+    sbfuncs ltfunc finaltext { prefix; suffix; terminator; width } cycles
   in
-  let halflen = totallen asr 1 in
-  let wordsplitfn chr =
-    succ (List.length (List.take_while chr ~f:(fun s -> String.( <> ) s " ")))
-  in
-  let accmfn _ bts pos acc = (pos, bts) :: acc in
-  let brword =
-    ucinds true charlist wordsplitfn
-      (fun str bts _ acc -> (String.length str - bts, bts) :: acc)
-      width
-  in
-  let blchar = ucinds true revcharlist (fun _ -> 1) accmfn width in
-  let blword = ucinds true revcharlist wordsplitfn accmfn width in
-  let rchar = ucinds false revcharlist (fun _ -> 1) accmfn width in
-  let takeappend r l = List.append l (List.take r 1) in
   begin match
     ( direction,
       scroll_len,
@@ -402,9 +410,7 @@ let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
 
 let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
     { endcap_char; endcap_len; rest; scroll_len } =
-  let (print, term), joined_bytes, jointextlen, visual_chars =
-    sbvals text { prefix; suffix; terminator; width }
-  in
+  let joined_bytes, jointextlen, visual_chars = sbvals text in
   let ecl = Int.max 0 (width - visual_chars) in
   let ecp = Bytes.make ecl endcap_char in
   let finaltext = Stdlib.Bytes.cat (Stdlib.Bytes.cat ecp joined_bytes) ecp in
@@ -420,25 +426,18 @@ let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
     List.map pwlist ~f:(fun (p, w) ->
         if p = 0 || p = maxpos then (p, w, tot) else (p, w, sleep))
   in
-  let loopandprint = sbfunc ltfunc finaltext print cycles in
-  let charlist = uc_charlist (Bytes.to_string finaltext) in
-  let revcharlist = List.rev charlist in
-  let totallen = Bytes.length finaltext in
-  let lenminuswidth =
-    totallen - bytesofutfchars (String.concat charlist) width
+  let ( loopandprint,
+        term,
+        lenminuswidth,
+        _,
+        brword,
+        blchar,
+        blword,
+        _,
+        takeappend,
+        totallen ) =
+    sbfuncs ltfunc finaltext { prefix; suffix; terminator; width } cycles
   in
-  let wordsplitfn chr =
-    succ (List.length (List.take_while chr ~f:(fun s -> String.( <> ) s " ")))
-  in
-  let accmfn _ bts pos acc = (pos, bts) :: acc in
-  let brword =
-    ucinds true charlist wordsplitfn
-      (fun str bts _ acc -> (String.length str - bts, bts) :: acc)
-      width
-  in
-  let blchar = ucinds true revcharlist (fun _ -> 1) accmfn width in
-  let blword = ucinds true revcharlist wordsplitfn accmfn width in
-  let takeappend r l = List.append l (List.take r 1) in
   begin match (scroll_len, Ordering.of_int (compare visual_chars width)) with
   | Char, (Greater | Equal | Less) ->
       let l, r = List.split_while blchar ~f:(fun (a, b) -> a + b < totallen) in
