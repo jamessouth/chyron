@@ -204,50 +204,50 @@ let run_split_flap text { prefix; suffix; terminator; width }
     Array.of_list
       [ "a"; "v"; "h"; "w"; "t"; "u"; "z"; "A"; "E"; "T"; "C"; "P"; "2"; "6" ]
   in
-  let lenn = Array.length ltrs in
-  let a = String.concat text in
-  let b = String.length a in
-  let c = uc_charlist a in
-  let d = List.length c in
-  let e = b - d in
-  print_endline (string_of_int e);
-  let buffer = Bytes.create ((width lsl 2) + e) in
+  let len_ltrs = Array.length ltrs in
+  let input_concat = String.concat text in
+  let len_input_concat = String.length input_concat in
+  let excess_bytes =
+    len_input_concat - List.length (uc_charlist input_concat)
+  in
+  print_endline (string_of_int excess_bytes);
+  let buffer = Bytes.create ((width lsl 2) + excess_bytes) in
   let print, term = univfunc { prefix; suffix; terminator; width } in
-  let rec run_infinite_workers counts letters iterations_left =
+  let rec run_workers counts letters flips =
     (* List.iter workers ~f:(fun x -> Printf.printf "%d" x.count);
     print_endline ""; *)
-    if iterations_left <= 0 then ()
-    else
-      let outputs =
-        List.map2_exn counts letters ~f:(fun c l ->
-            if c < 1 then l else ltrs.(Random.int lenn))
+    if flips <= 0 then ()
+    else begin
+      let line =
+        String.concat ~sep:""
+          (List.map2_exn counts letters ~f:(fun c l ->
+               if c < 1 then l else ltrs.(Random.int len_ltrs)))
       in
-      let line = String.concat ~sep:"" outputs in
       let llen = String.length line in
       Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer ~dst_pos:0
         ~len:llen;
       print buffer 0 llen;
       Externs.caml_clock_nanosleep flip_sleep;
-      run_infinite_workers (List.map counts ~f:pred) letters
-        (pred iterations_left)
+      run_workers (List.map counts ~f:pred) letters (pred flips)
+    end
   in
-  let loopandprint pwlist =
-    let pwlen = List.length pwlist in
-    let lines = Array.of_list pwlist in
+  let loopandprint wordlist =
+    let wl_len = List.length wordlist in
+    let wordarray = Array.of_list wordlist in
     let rec loop ticks idx =
       if ticks <= 0 then ()
       else begin
-        run_infinite_workers
+        run_workers
           (List.init width ~f:(fun _ ->
                Random.int_incl flip_lo_bound flip_hi_bound))
-          (Array.unsafe_get lines idx)
+          (Array.unsafe_get wordarray idx)
           (succ flip_hi_bound);
         Externs.caml_clock_nanosleep sfsleep;
-        let nidx = if idx = pred pwlen then 0 else succ idx in
+        let nidx = if idx = pred wl_len then 0 else succ idx in
         (loop [@tailcall]) (pred ticks) nidx
       end
     in
-    loop (pwlen * sfcycles) 0
+    loop (wl_len * sfcycles) 0
   in
   ();
   loopandprint finaltex;
@@ -304,15 +304,17 @@ let sbfuncs ltfunc ft { prefix; suffix; terminator; width } cycles =
     print_endline (List.to_string ~f:string_of_int flatlist);
     print_endline (Bytes.to_string ft);
     let indexes = Array.of_list flatlist in
-    let arrlen = Array.length indexes - 3 in
+    let jumpdist = 3 in
+    let arrlen = Array.length indexes - jumpdist in
     let rec loop ticks idx =
       if ticks <= 0 then ()
       else begin
         print ft
           (Array.unsafe_get indexes idx)
           (Array.unsafe_get indexes (succ idx));
-        Externs.caml_clock_nanosleep (Array.unsafe_get indexes (idx + 2));
-        let nidx = if idx = arrlen then 0 else idx + 3 in
+        Externs.caml_clock_nanosleep
+          (Array.unsafe_get indexes (idx |> succ |> succ));
+        let nidx = if idx = arrlen then 0 else idx + jumpdist in
         (loop [@tailcall]) (pred ticks) nidx
       end
     in
@@ -456,4 +458,3 @@ let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
       |> loopandprint
   end;
   term
-(* 566 *)
