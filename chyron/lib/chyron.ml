@@ -99,7 +99,7 @@ type splitflapflags = {
 }
 
 let univfunc { prefix; suffix; terminator; _ } =
-  (* setting these chars here instead of on the constructors because of the way the help text looks*)
+  (* setting these chars here instead of as constructor payloads because of the way the help text looks*)
   let lastchar =
     match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
   in
@@ -116,7 +116,14 @@ let univfunc { prefix; suffix; terminator; _ } =
     Externs.unsafe_output_char stdout lastchar;
     Externs.unsafe_flush stdout
   in
-  print
+  let term =
+    match terminator with
+    | Newline -> ()
+    | _ ->
+        Externs.unsafe_output_char stdout '\n';
+        Externs.unsafe_flush stdout
+  in
+  (print, term)
 
 let uc_charlist str =
   Uuseg_string.fold_utf_8 `Grapheme_cluster (fun acc char -> char :: acc) [] str
@@ -128,7 +135,6 @@ let run_split_flap text { prefix; suffix; terminator; width }
     | [ s ] -> s
     | h :: t -> List.append (List.append h sep) (list_concat ~sep t)
   in
-
   let breakdown txt =
     let ltt =
       List.rev
@@ -151,7 +157,6 @@ let run_split_flap text { prefix; suffix; terminator; width }
     in
     loop ltt
   in
-
   let buildup txt =
     let sub = List.sub txt in
     let rec loop acc pos len =
@@ -171,7 +176,6 @@ let run_split_flap text { prefix; suffix; terminator; width }
     in
     loop [] 0 1
   in
-
   let pad txt =
     List.map txt ~f:(fun x ->
         let diff = width - List.length x in
@@ -193,29 +197,22 @@ let run_split_flap text { prefix; suffix; terminator; width }
                 List.init (diff - r) ~f:(fun _ -> " ");
               ])
   in
-
   let finaltex = text |> breakdown |> buildup |> pad in
   print_endline
     (List.to_string ~f:(fun j -> List.to_string ~f:Fn.id j) finaltex);
-
   let ltrs =
     Array.of_list
       [ "a"; "v"; "h"; "w"; "t"; "u"; "z"; "A"; "E"; "T"; "C"; "P"; "2"; "6" ]
   in
   let lenn = Array.length ltrs in
-
   let a = String.concat text in
   let b = String.length a in
   let c = uc_charlist a in
   let d = List.length c in
   let e = b - d in
-
   print_endline (string_of_int e);
-
   let buffer = Bytes.create ((width lsl 2) + e) in
-
-  let print = univfunc { prefix; suffix; terminator; width } in
-
+  let print, term = univfunc { prefix; suffix; terminator; width } in
   let rec run_infinite_workers counts letters iterations_left =
     (* List.iter workers ~f:(fun x -> Printf.printf "%d" x.count);
     print_endline ""; *)
@@ -225,22 +222,18 @@ let run_split_flap text { prefix; suffix; terminator; width }
         List.map2_exn counts letters ~f:(fun c l ->
             if c < 1 then l else ltrs.(Random.int lenn))
       in
-
       let line = String.concat ~sep:"" outputs in
       let llen = String.length line in
       Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer ~dst_pos:0
         ~len:llen;
-
       print buffer 0 llen;
       Externs.caml_clock_nanosleep flip_sleep;
       run_infinite_workers (List.map counts ~f:pred) letters
         (pred iterations_left)
   in
-
   let loopandprint pwlist =
     let pwlen = List.length pwlist in
     let lines = Array.of_list pwlist in
-
     let rec loop ticks idx =
       if ticks <= 0 then ()
       else begin
@@ -257,35 +250,45 @@ let run_split_flap text { prefix; suffix; terminator; width }
     loop (pwlen * sfcycles) 0
   in
   ();
-
   loopandprint finaltex;
+  term
 
-  match terminator with
-  | Newline -> ()
-  | _ ->
-      Externs.unsafe_output_char stdout '\n';
-      Externs.unsafe_flush stdout
-
-let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
-    { direction; scroll_mode } { endcap_char; endcap_len; rest; scroll_len } =
+let sbvals text { prefix; suffix; terminator; width } endcap_char =
   let joined_text = String.concat ~sep:" " text in
   let jointextlen = String.length joined_text in
   let visual_chars = List.length (uc_charlist joined_text) in
   let width_minus_visual_chars = width - visual_chars in
+  let joined_bytes = Bytes.of_string joined_text in
+  let print, term = univfunc { prefix; suffix; terminator; width } in
+  ( width_minus_visual_chars,
+    print,
+    term,
+    joined_bytes,
+    jointextlen,
+    visual_chars )
+
+let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
+    { direction; scroll_mode } { endcap_char; endcap_len; rest; scroll_len } =
+  let ( width_minus_visual_chars,
+        print,
+        term,
+        joined_bytes,
+        jointextlen,
+        visual_chars ) =
+    sbvals text { prefix; suffix; terminator; width } endcap_char
+  in
   let ecl =
     Int.clamp_exn
       (Int.max endcap_len width_minus_visual_chars)
       ~min:1 ~max:(pred width)
   in
   let ecp = Bytes.make ecl endcap_char in
-  let joined_bytes = Bytes.of_string joined_text in
   let base = Stdlib.Bytes.cat (Stdlib.Bytes.cat ecp joined_bytes) ecp in
   let finaltext =
     match direction with
     | Left -> Stdlib.Bytes.cat joined_bytes base
     | Right -> Stdlib.Bytes.cat base joined_bytes
   in
-  let print = univfunc { prefix; suffix; terminator; width } in
 
   let loopandprint pwlist =
     let pwlen = List.length pwlist in
@@ -402,24 +405,23 @@ let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
   | Right, Word, Wrap, (Greater | Equal | Less) ->
       List.take brword (List.length text) |> loopandprint
   end;
-  match terminator with
-  | Newline -> ()
-  | _ ->
-      Externs.unsafe_output_char stdout '\n';
-      Externs.unsafe_flush stdout
+  term
 
 let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
     { endcap_char; endcap_len; rest; scroll_len } =
-  let joined_text = String.concat ~sep:" " text in
-  let jointextlen = String.length joined_text in
-  let visual_chars = List.length (uc_charlist joined_text) in
-  let width_minus_visual_chars = width - visual_chars in
+  let ( width_minus_visual_chars,
+        print,
+        term,
+        joined_bytes,
+        jointextlen,
+        visual_chars ) =
+    sbvals text { prefix; suffix; terminator; width } endcap_char
+  in
+
   let ecl = Int.max 0 width_minus_visual_chars in
   let ecp = Bytes.make ecl endcap_char in
-  let joined_bytes = Bytes.of_string joined_text in
-  let finaltext = Stdlib.Bytes.cat (Stdlib.Bytes.cat ecp joined_bytes) ecp in
 
-  let print = univfunc { prefix; suffix; terminator; width } in
+  let finaltext = Stdlib.Bytes.cat (Stdlib.Bytes.cat ecp joined_bytes) ecp in
 
   let loopandprint pwlist =
     let pwlen = List.length pwlist in
@@ -515,9 +517,5 @@ let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
       [ (0, jointextlen + ecl); (lenminuswidth, jointextlen + ecl) ]
       |> loopandprint
   end;
-  match terminator with
-  | Newline -> ()
-  | _ ->
-      Externs.unsafe_output_char stdout '\n';
-      Externs.unsafe_flush stdout
+  term
 (* 566 *)
