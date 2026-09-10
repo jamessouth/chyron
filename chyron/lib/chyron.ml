@@ -20,7 +20,7 @@ module Ints = struct
   let twoplus = Command.Arg_type.create (parseint ~min:2)
 end
 
-module Scroll_len = struct
+module Scroll_step = struct
   type t = Char | Word [@@deriving sexp]
 
   let arg =
@@ -78,15 +78,14 @@ type universalflags = {
   width : int;
 }
 
-type scrollflags = { direction : Direction.t; scroll_mode : Scroll_mode.t }
-
 type bounceflags = {
   endcap_char : char;
   endcap_len : int;
   rest : int;
-  scroll_len : Scroll_len.t;
+  scroll_step : Scroll_step.t;
 }
 
+type scrollflags = { direction : Direction.t; scroll_mode : Scroll_mode.t }
 type scrollbounceflags = { cycles : int; sleep : int }
 
 type splitflapflags = {
@@ -319,7 +318,7 @@ let sbfuncs ltfunc ft { prefix; suffix; terminator; width } cycles =
     totallen )
 
 let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
-    { direction; scroll_mode } { endcap_char; endcap_len; rest; scroll_len } =
+    { direction; scroll_mode } { endcap_char; endcap_len; rest; scroll_step } =
   let joined_bytes, jointextlen, visual_chars = sbvals text in
   let ecl =
     Int.clamp_exn
@@ -357,7 +356,7 @@ let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
   in
   begin match
     ( direction,
-      scroll_len,
+      scroll_step,
       scroll_mode,
       Ordering.of_int (compare visual_chars width) )
   with
@@ -399,7 +398,7 @@ let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
   term
 
 let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
-    { endcap_char; endcap_len; rest; scroll_len } =
+    { endcap_char; endcap_len; rest; scroll_step } =
   let joined_bytes, jointextlen, visual_chars = sbvals text in
   let ecl = Int.max 0 (width - visual_chars) in
   let ecp = Bytes.make ecl endcap_char in
@@ -428,7 +427,7 @@ let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
         totallen ) =
     sbfuncs ltfunc finaltext { prefix; suffix; terminator; width } cycles
   in
-  begin match (scroll_len, Ordering.of_int (compare visual_chars width)) with
+  begin match (scroll_step, Ordering.of_int (compare visual_chars width)) with
   | Char, (Greater | Equal | Less) ->
       let l, r = List.split_while blchar ~f:(fun (a, b) -> a + b < totallen) in
       List.drop l 1 |> List.rev |> List.append (takeappend r l) |> loopandprint
