@@ -98,8 +98,19 @@ let sfflags =
   { sfcycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sfsleep }
 
 let bounce =
-  Command.basic ~summary:"bounce mode summary"
-    ~readme:(fun () -> "bounce mode details")
+  Command.basic ~summary:"Bounce TEXT left and right."
+    ~readme:(fun () ->
+      "Bounce TEXT by --scroll-step with speed --sleep back and forth --cycles \
+       times.\n\
+       If TEXT is shorter than --width, an endcap string made of --endcap-char \
+       with\n\
+       length --endcap-len will be added to the beginning and end of TEXT. \
+       Each frame\n\
+       of TEXT will be printed in --width along with any --prefix and \
+       --suffix, plus\n\
+       --terminator. An optional --rest can be given to extend the on-screen \
+       time of\n\
+       some frames that may otherwise only be shown very briefly.")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags
@@ -113,10 +124,9 @@ let scroll =
       "Scroll TEXT by --scroll-step in --scroll-mode with speed --sleep. Scrolls\n\
        through all of TEXT --cycles times in --direction. An endcap string made\n\
        of --endcap-char with length --endcap-len will sit between the end and\n\
-       beginning of TEXT. Each frame of TEXT will be printed in --width with any\n\
-       provided --prefix and --suffix, then --terminator. An optional --rest\n\
-       can be given to extend the on-screen time of some frames that may \
-       otherwise\n\
+       beginning of TEXT. Each frame of TEXT will be printed in --width along\n\
+       with any --prefix and --suffix, plus --terminator. An optional --rest can\n\
+       be given to extend the on-screen time of some frames that may otherwise\n\
        only be shown very briefly.")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
@@ -127,8 +137,13 @@ let scroll =
      fun () -> run_scroll text uflags sbflags scflags bflags)
 
 let split_flap =
-  Command.basic ~summary:"split-flap mode summary"
-    ~readme:(fun () -> "split-flap mode details")
+  Command.basic ~summary:"Show TEXT as a split-flap display."
+    ~readme:(fun () ->
+      "Show TEXT --cycles times with duration --sleep per line. Each character\n\
+       flips between --flip-lo-bound and --flip-hi-bound times at a rate of\n\
+       --flip-sleep ms per flip. TEXT will be --justify aligned. Each frame of\n\
+       TEXT will be printed in --width along with any --prefix and --suffix,\n\
+       plus --terminator.")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags
@@ -137,5 +152,5 @@ let split_flap =
 
 let () =
   Command_unix.run ~version:"1.0" ~build_info:"tbd"
-    (Command.group ~summary:"group summary"
+    (Command.group ~summary:"Bounce, scroll, or split-flap TEXT"
        [ ("bounce", bounce); ("scroll", scroll); ("split-flap", split_flap) ])
