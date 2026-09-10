@@ -100,20 +100,14 @@ type splitflapflags = {
 
 let univfunc { prefix; suffix; terminator; _ } =
   (* setting these chars here instead of as constructor payloads because of the way the help text looks*)
-  let lastchar =
-    match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' '
-  in
   let pfix = Bytes.of_string prefix in
-  let plen = Bytes.length pfix in
   let sfix = Bytes.of_string suffix in
-  let slen = Bytes.length sfix in
   let print ft pos wid =
-    (* print_endline (string_of_int pos);
-    print_endline (string_of_int wid); *)
-    Externs.unsafe_output_bytes stdout pfix 0 plen;
+    Externs.unsafe_output_bytes stdout pfix 0 (Bytes.length pfix);
     Externs.unsafe_output_bytes stdout ft pos wid;
-    Externs.unsafe_output_bytes stdout sfix 0 slen;
-    Externs.unsafe_output_char stdout lastchar;
+    Externs.unsafe_output_bytes stdout sfix 0 (Bytes.length sfix);
+    Externs.unsafe_output_char stdout
+      (match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' ');
     Externs.unsafe_flush stdout
   in
   let term =
@@ -133,45 +127,46 @@ let run_split_flap text { prefix; suffix; terminator; width }
   let rec list_concat ~sep = function
     | [] -> []
     | [ s ] -> s
-    | h :: t -> List.append (List.append h sep) (list_concat ~sep t)
+    | h :: t -> list_concat ~sep t |> List.append (sep |> List.append h)
   in
   let breakdown txt =
     let ltt =
-      List.rev
-        (List.fold txt ~init:[] ~f:(fun acc x ->
-             let lt = List.rev (uc_charlist x) in
-             lt :: acc))
+      List.fold txt ~init:[] ~f:(fun acc x ->
+          let lt = List.rev (uc_charlist x) in
+          lt :: acc)
+      |> List.rev
     in
     let rec loop txt =
-      print_endline (List.to_string ~f:Fn.id (List.map txt ~f:String.concat));
       match List.for_all txt ~f:(fun x -> List.length x <= width) with
       | true -> txt
       | false ->
-          loop
-            (List.fold (List.rev txt) ~init:[] ~f:(fun acc x ->
-                 let vis = List.length x in
-                 if vis > width then
-                   let l, r = List.split_n x (List.length x asr 1) in
-                   l :: r :: acc
-                 else x :: acc))
+          List.fold (List.rev txt) ~init:[] ~f:(fun acc x ->
+              let vis = List.length x in
+              if vis > width then
+                let l, r = List.split_n x (List.length x asr 1) in
+                l :: r :: acc
+              else x :: acc)
+          |> (loop [@tailcall])
     in
     loop ltt
   in
   let buildup txt =
     let sub = List.sub txt in
     let rec loop acc pos len =
-      Printf.printf "%d %d\n" pos len;
       let predlen = pred len in
       match pos + len > List.length txt with
       | true ->
           let lt = if predlen = 0 then acc else sub ~pos ~len:predlen :: acc in
           List.rev_map lt ~f:(fun x -> list_concat ~sep:[ " " ] x)
       | false -> begin
-          let vis = List.length (list_concat ~sep:[ " " ] (sub ~pos ~len)) in
+          let vis = list_concat ~sep:[ " " ] (sub ~pos ~len) |> List.length in
           match Ordering.of_int (compare vis width) with
-          | Less -> loop acc pos (succ len)
-          | Greater -> loop (sub ~pos ~len:predlen :: acc) (pos + predlen) 1
-          | Equal -> loop (sub ~pos ~len :: acc) (pos + len) 1
+          | Less -> (loop [@tailcall]) acc pos (succ len)
+          | Greater ->
+              (loop [@tailcall])
+                (sub ~pos ~len:predlen :: acc)
+                (pos + predlen) 1
+          | Equal -> (loop [@tailcall]) (sub ~pos ~len :: acc) (pos + len) 1
         end
     in
     loop [] 0 1
@@ -179,27 +174,17 @@ let run_split_flap text { prefix; suffix; terminator; width }
   let pad txt =
     List.map txt ~f:(fun x ->
         let diff = width - List.length x in
-        Printf.printf " %d %s %s|\n" diff
-          (String.t_of_sexp (Justify.sexp_of_t justify))
-          (List.to_string ~f:Fn.id x);
+        let intspace _ = " " in
         match (justify, diff = 0) with
         | _, true -> x
-        | Left, false ->
-            list_concat ~sep:[] [ x; List.init diff ~f:(fun _ -> " ") ]
-        | Right, false ->
-            list_concat ~sep:[] [ List.init diff ~f:(fun _ -> " "); x ]
+        | Left, false -> list_concat ~sep:[] [ x; List.init diff ~f:intspace ]
+        | Right, false -> list_concat ~sep:[] [ List.init diff ~f:intspace; x ]
         | Center, false ->
             let r = diff / 2 in
             list_concat ~sep:[]
-              [
-                List.init r ~f:(fun _ -> " ");
-                x;
-                List.init (diff - r) ~f:(fun _ -> " ");
-              ])
+              [ List.init r ~f:intspace; x; List.init (diff - r) ~f:intspace ])
   in
   let finaltex = text |> breakdown |> buildup |> pad in
-  print_endline
-    (List.to_string ~f:(fun j -> List.to_string ~f:Fn.id j) finaltex);
   let ltrs =
     Array.of_list
       [ "a"; "v"; "h"; "w"; "t"; "u"; "z"; "A"; "E"; "T"; "C"; "P"; "2"; "6" ]
@@ -210,25 +195,23 @@ let run_split_flap text { prefix; suffix; terminator; width }
   let excess_bytes =
     len_input_concat - List.length (uc_charlist input_concat)
   in
-  print_endline (string_of_int excess_bytes);
   let buffer = Bytes.create ((width lsl 2) + excess_bytes) in
   let print, term = univfunc { prefix; suffix; terminator; width } in
-  let rec run_workers counts letters flips =
-    (* List.iter workers ~f:(fun x -> Printf.printf "%d" x.count);
-    print_endline ""; *)
+  let rec run_workers counts ~letters ~flips =
     if flips <= 0 then ()
     else begin
       let line =
-        String.concat ~sep:""
-          (List.map2_exn counts letters ~f:(fun c l ->
-               if c < 1 then l else ltrs.(Random.int len_ltrs)))
+        List.map2_exn counts letters ~f:(fun c l ->
+            if c < 1 then l else Random.int len_ltrs |> Array.unsafe_get ltrs)
+        |> String.concat ~sep:""
       in
       let llen = String.length line in
       Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer ~dst_pos:0
         ~len:llen;
       print buffer 0 llen;
       Externs.caml_clock_nanosleep flip_sleep;
-      run_workers (List.map counts ~f:pred) letters (pred flips)
+      (run_workers [@tailcall]) (List.map counts ~f:pred) ~letters
+        ~flips:(pred flips)
     end
   in
   let loopandprint wordlist =
@@ -237,11 +220,11 @@ let run_split_flap text { prefix; suffix; terminator; width }
     let rec loop ticks idx =
       if ticks <= 0 then ()
       else begin
-        run_workers
-          (List.init width ~f:(fun _ ->
-               Random.int_incl flip_lo_bound flip_hi_bound))
-          (Array.unsafe_get wordarray idx)
-          (succ flip_hi_bound);
+        List.init width ~f:(fun _ ->
+            Random.int_incl flip_lo_bound flip_hi_bound)
+        |> run_workers
+             ~letters:(Array.unsafe_get wordarray idx)
+             ~flips:(succ flip_hi_bound);
         Externs.caml_clock_nanosleep sfsleep;
         let nidx = if idx = pred wl_len then 0 else succ idx in
         (loop [@tailcall]) (pred ticks) nidx
@@ -278,7 +261,9 @@ let sbfuncs ltfunc ft { prefix; suffix; terminator; width } cycles =
           let str = String.concat lt in
           let bts = bytesofutfchars str wid in
           let l, r = List.split_n lt (sptfn lt) in
-          loop (String.length (String.concat l) + pos) (accfn str bts pos acc) r
+          (loop [@tailcall])
+            (String.length (String.concat l) + pos)
+            (accfn str bts pos acc) r
     in
     loop 0 [] cl
   in
@@ -286,10 +271,12 @@ let sbfuncs ltfunc ft { prefix; suffix; terminator; width } cycles =
   let revcharlist = List.rev charlist in
   let totallen = Bytes.length ft in
   let wordsplitfn chr =
-    succ (List.length (List.take_while chr ~f:(fun s -> String.( <> ) s " ")))
+    chr
+    |> List.take_while ~f:(fun s -> String.( <> ) s " ")
+    |> List.length |> succ
   in
   let accmfn _ bts pos acc = (pos, bts) :: acc in
-  let takeappend r l = List.append l (List.take r 1) in
+  let takeappend r l = List.take r 1 |> List.append l in
   let print, term = univfunc { prefix; suffix; terminator; width } in
   let loopandprint pwlist =
     let pwlen = List.length pwlist in
@@ -301,8 +288,6 @@ let sbfuncs ltfunc ft { prefix; suffix; terminator; width } cycles =
       in
       loop pwslist
     in
-    print_endline (List.to_string ~f:string_of_int flatlist);
-    print_endline (Bytes.to_string ft);
     let indexes = Array.of_list flatlist in
     let jumpdist = 3 in
     let arrlen = Array.length indexes - jumpdist in
@@ -377,10 +362,11 @@ let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
       Ordering.of_int (compare visual_chars width) )
   with
   | Left, Char, Reset, Greater ->
-      List.filter blchar ~f:(fun (a, b) -> a + b <= halflen - ecl)
+      blchar
+      |> List.filter ~f:(fun (a, b) -> a + b <= halflen - ecl)
       |> loopandprint
   | Left, Char, Wrap, (Greater | Equal | Less) ->
-      List.filter blchar ~f:(fun (a, _) -> a < halflen) |> loopandprint
+      blchar |> List.filter ~f:(fun (a, _) -> a < halflen) |> loopandprint
   | Left, (Char | Word), Reset, Equal -> [ (0, jointextlen) ] |> loopandprint
   | Left, Word, Reset, Greater -> begin
       let l, r =
@@ -393,11 +379,13 @@ let run_scroll text { prefix; suffix; terminator; width } { cycles; sleep }
   | (Left | Right), (Char | Word), Reset, Less ->
       [ (0, jointextlen + ecl) ] |> loopandprint
   | Right, Char, Reset, Greater ->
-      List.filter rchar ~f:(fun (a, _) ->
+      rchar
+      |> List.filter ~f:(fun (a, _) ->
           a >= halflen + ecl && a < succ lenminuswidth)
       |> loopandprint
   | Right, Char, Wrap, (Greater | Equal | Less) ->
-      List.filter rchar ~f:(fun (a, _) ->
+      rchar
+      |> List.filter ~f:(fun (a, _) ->
           a > lenminuswidth - halflen && a < succ lenminuswidth)
       |> loopandprint
   | Right, (Char | Word), Reset, Equal -> [ (ecl, jointextlen) ] |> loopandprint
@@ -421,7 +409,7 @@ let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
     let maxpos =
       let rec loop max = function
         | [] -> max
-        | (p, _) :: t -> loop (if p > max then p else max) t
+        | (p, _) :: t -> (loop [@tailcall]) (if p > max then p else max) t
       in
       loop 0 pwlist
     in
@@ -443,14 +431,13 @@ let run_bounce text { prefix; suffix; terminator; width } { cycles; sleep }
   begin match (scroll_len, Ordering.of_int (compare visual_chars width)) with
   | Char, (Greater | Equal | Less) ->
       let l, r = List.split_while blchar ~f:(fun (a, b) -> a + b < totallen) in
-      List.append (takeappend r l) (List.rev (List.drop l 1)) |> loopandprint
+      List.drop l 1 |> List.rev |> List.append (takeappend r l) |> loopandprint
   | Word, Greater -> begin
-      let fltr =
-        List.filteri (List.append blword brword) ~f:(fun i (a, _) ->
-            (a > 0 || i = 0) && a <= lenminuswidth)
-      in
-      List.remove_consecutive_duplicates fltr ~equal:(fun (a, _) (b, _) ->
-          a = b)
+      brword |> List.append blword
+      |> List.filteri ~f:(fun i (a, _) ->
+          (a > 0 || i = 0) && a <= lenminuswidth)
+      |> List.remove_consecutive_duplicates ~which_to_keep:`Last
+           ~equal:(fun (a, _) (b, _) -> a = b)
       |> loopandprint
     end
   | Word, (Equal | Less) ->
