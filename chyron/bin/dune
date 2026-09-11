@@ -7,9 +7,9 @@
  (modes native)
  (name main)
  (flags
-  (:standard -g -w +a-3-49))
+  (:standard -g -w +a -w -3 -w -42 -w -44 -w -49 -w -70 -warn-error +a))
  (ocamlopt_flags
-  (:standard -g -w +a-3-49))
+  (:standard -g -w +a -w -3 -w -42 -w -44 -w -49 -w -70 -warn-error +a))
  (preprocess
   (pps ppx_jane))
  (public_name chyron))

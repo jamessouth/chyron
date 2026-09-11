@@ -22,7 +22,39 @@ let uflags =
   { prefix; suffix; terminator; width }
 
 let bflags =
-  let%map_open.Command endcap_char =
+  let%map_open.Command cycles =
+    flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.oneplus
+      (fun x -> Core.Int.sexp_of_t x)
+      ~default:65_536 ~doc:"int number of complete bounce cycles of TEXT\n"
+  and endcap_char =
+    flag_optional_with_default_doc "--endcap-char" ~aliases:[ "-e" ] char
+      (fun x -> Core.Char.sexp_of_t x)
+      ~default:' ' ~doc:"char endcap on ends of TEXT\n"
+  and rest =
+    flag_optional_with_default_doc "--rest" ~aliases:[ "-r" ] Ints.zeroplus
+      (fun x -> Core.Int.sexp_of_t x)
+      ~default:0 ~doc:"int additional sleep in ms for frames at extremes\n"
+  and scroll_step =
+    flag_optional_with_default_doc "--scroll-step" ~aliases:[ "-o" ]
+      Scroll_step.arg Scroll_step.sexp_of_t ~default:Scroll_step.Char
+      ~doc:"string scroll TEXT by character or by word\n"
+  and sleep =
+    flag_optional_with_default_doc "--sleep" ~aliases:[ "-s" ] Ints.oneplus
+      (fun x -> Core.Int.sexp_of_t x)
+      ~default:300 ~doc:"int sleep in ms per scroll of TEXT\n"
+  in
+  { cycles; endcap_char; rest; scroll_step; sleep }
+
+let scflags =
+  let%map_open.Command cycles =
+    flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.oneplus
+      (fun x -> Core.Int.sexp_of_t x)
+      ~default:65_536 ~doc:"int number of scroll cycles of TEXT\n"
+  and direction =
+    flag_optional_with_default_doc "--direction" ~aliases:[ "-d" ] Direction.arg
+      Direction.sexp_of_t ~default:Direction.Left
+      ~doc:"string scroll TEXT to left or right\n"
+  and endcap_char =
     flag_optional_with_default_doc "--endcap-char" ~aliases:[ "-e" ] char
       (fun x -> Core.Char.sexp_of_t x)
       ~default:' ' ~doc:"char endcap between end and start of TEXT\n"
@@ -38,32 +70,25 @@ let bflags =
     flag_optional_with_default_doc "--scroll-step" ~aliases:[ "-o" ]
       Scroll_step.arg Scroll_step.sexp_of_t ~default:Scroll_step.Char
       ~doc:"string scroll TEXT by character or by word\n"
-  in
-  { endcap_char; endcap_len; rest; scroll_step }
-
-let scflags =
-  let%map_open.Command direction =
-    flag_optional_with_default_doc "--direction" ~aliases:[ "-d" ] Direction.arg
-      Direction.sexp_of_t ~default:Direction.Left
-      ~doc:"string scroll TEXT to left or right\n"
   and scroll_mode =
     flag_optional_with_default_doc "--scroll-mode" ~aliases:[ "-m" ]
       Scroll_mode.arg Scroll_mode.sexp_of_t ~default:Scroll_mode.Wrap
       ~doc:"string wrap TEXT around to other side or reset to start\n"
-  in
-  { direction; scroll_mode }
-
-let sbflags =
-  let%map_open.Command cycles =
-    flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.oneplus
-      (fun x -> Core.Int.sexp_of_t x)
-      ~default:65_536 ~doc:"int number of scroll cycles of TEXT\n"
   and sleep =
     flag_optional_with_default_doc "--sleep" ~aliases:[ "-s" ] Ints.oneplus
       (fun x -> Core.Int.sexp_of_t x)
       ~default:300 ~doc:"int sleep in ms per scroll of TEXT\n"
   in
-  { cycles; sleep }
+  {
+    cycles;
+    direction;
+    endcap_char;
+    endcap_len;
+    rest;
+    scroll_mode;
+    scroll_step;
+    sleep;
+  }
 
 let sfflags =
   let%map_open.Command sfcycles =
@@ -103,9 +128,7 @@ let bounce =
       "Bounce TEXT by --scroll-step with speed --sleep back and forth --cycles \
        times.\n\
        If TEXT is shorter than --width, an endcap string made of --endcap-char \
-       with\n\
-       length --endcap-len will be added to the beginning and end of TEXT. \
-       Each frame\n\
+       will be added to the beginning and end of TEXT. Each frame\n\
        of TEXT will be printed in --width along with any --prefix and \
        --suffix, plus\n\
        --terminator. An optional --rest can be given to extend the on-screen \
@@ -114,9 +137,8 @@ let bounce =
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags
-     and sbflags
      and bflags in
-     fun () -> run_bounce text uflags sbflags bflags)
+     fun () -> run_bounce text uflags bflags)
 
 let scroll =
   Command.basic ~summary:"Scroll TEXT left or right."
@@ -131,10 +153,8 @@ let scroll =
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags
-     and sbflags
-     and scflags
-     and bflags in
-     fun () -> run_scroll text uflags sbflags scflags bflags)
+     and scflags in
+     fun () -> run_scroll text uflags scflags)
 
 let split_flap =
   Command.basic ~summary:"Show TEXT as a split-flap display."
