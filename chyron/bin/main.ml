@@ -48,14 +48,14 @@ let bflags =
     flag_optional_with_default_doc "--rest" ~aliases:[ "-r" ] Ints.zeroplus
       (fun x -> Int.sexp_of_t x)
       ~default:0 ~doc:"int additional sleep in ms for frames at extremes\n"
-  and step =
-    flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.Step.arg
-      Sb.Step.sexp_of_t ~default:Sb.Step.Char
-      ~doc:"string scroll TEXT by character or by word\n"
   and sleep =
     flag_optional_with_default_doc "--sleep" ~aliases:[ "-s" ] Ints.oneplus
       (fun x -> Int.sexp_of_t x)
-      ~default:300 ~doc:"int sleep in ms per scroll of TEXT\n"
+      ~default:300 ~doc:"int sleep in ms per step of TEXT\n"
+  and step =
+    flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.Step.arg
+      Sb.Step.sexp_of_t ~default:Sb.Step.Char
+      ~doc:"string step TEXT by character or by word\n"
   in
   { cycles; endcap_char; rest; step; sleep }
 
@@ -85,8 +85,8 @@ let scflags =
     flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.Step.arg
       Sb.Step.sexp_of_t ~default:Sb.Step.Char
       ~doc:"string scroll TEXT by character or by word\n"
-  and scroll_mode =
-    flag_optional_with_default_doc "--scroll-mode" ~aliases:[ "-m" ] mode_arg
+  and mode =
+    flag_optional_with_default_doc "--mode" ~aliases:[ "-m" ] mode_arg
       sexp_of_mode ~default:Wrap
       ~doc:"string wrap TEXT around to other side or reset to start\n"
   and sleep =
@@ -94,7 +94,7 @@ let scflags =
       (fun x -> Int.sexp_of_t x)
       ~default:300 ~doc:"int sleep in ms per scroll of TEXT\n"
   in
-  { cycles; direction; endcap_char; endcap_len; rest; scroll_mode; step; sleep }
+  { cycles; direction; endcap_char; endcap_len; rest; mode; step; sleep }
 
 let sfflags =
   let open Split_flap in
@@ -151,13 +151,14 @@ let bounce =
 let scroll =
   Command.basic ~summary:"Scroll TEXT left or right."
     ~readme:(fun () ->
-      "Scroll TEXT by --step in --scroll-mode with speed --sleep. Scrolls\n\
-       through all of TEXT --cycles times in --direction. An endcap string made\n\
-       of --endcap-char with length --endcap-len will sit between the end and\n\
-       beginning of TEXT. Each frame of TEXT will be printed in --width along\n\
-       with any --prefix and --suffix, plus --terminator. An optional --rest can\n\
-       be given to extend the on-screen time of some frames that may otherwise\n\
-       only be shown very briefly.")
+      "Scroll TEXT by --step in --mode every --sleep ms --cycles times in \
+       --direction.\n\
+       An endcap string made of --endcap-char with length --endcap-len will be \
+       added\n\
+       between the end and beginning of TEXT. Each frame of TEXT prints --width\n\
+       characters plus any --prefix and --suffix, plus --terminator. An optional\n\
+       --rest can be given to extend the on-screen time of some frames that may\n\
+       otherwise only be shown very briefly.")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags

@@ -231,7 +231,7 @@ module Scroll = struct
     endcap_char : char;
     endcap_len : int;
     rest : int;
-    scroll_mode : mode;
+    mode : mode;
     step : Sb.Step.t;
     sleep : int;
   }
@@ -247,16 +247,7 @@ module Scroll = struct
       [ ("reset", Reset); ("wrap", Wrap) ]
 
   let run_scroll text Universal.{ prefix; suffix; terminator; width }
-      {
-        cycles;
-        direction;
-        endcap_char;
-        endcap_len;
-        rest;
-        scroll_mode;
-        step;
-        sleep;
-      } =
+      { cycles; direction; endcap_char; endcap_len; rest; mode; step; sleep } =
     let joined_bytes, jointextlen, visual_chars = Sb.sbvals text in
     let ecl =
       Int.clamp_exn
@@ -272,7 +263,7 @@ module Scroll = struct
     in
     let ltfunc pwlist pwlen =
       let tot = sleep + rest in
-      match scroll_mode with
+      match mode with
       | Wrap ->
           List.mapi pwlist ~f:(fun i (p, w) ->
               if i = 0 then (p, w, tot) else (p, w, sleep))
@@ -297,10 +288,7 @@ module Scroll = struct
     begin
       let open Sb.Step in
       match
-        ( direction,
-          step,
-          scroll_mode,
-          Ordering.of_int (compare visual_chars width) )
+        (direction, step, mode, Ordering.of_int (compare visual_chars width))
       with
       | Left, Char, Reset, Greater ->
           blchar
