@@ -1,16 +1,5 @@
 open Core
 
-module Ints = struct
-  let parseint ~min num =
-    match num |> int_of_string_opt with
-    | Some n -> Int.max min n
-    | None -> invalid_arg "not an int"
-
-  let zeroplus = Command.Arg_type.create (parseint ~min:0)
-  let oneplus = Command.Arg_type.create (parseint ~min:1)
-  let twoplus = Command.Arg_type.create (parseint ~min:2)
-end
-
 module Scroll_step = struct
   type t = Char | Word [@@deriving sexp]
 
@@ -105,8 +94,9 @@ module Split_flap = struct
       [ ("center", Center); ("left", Left); ("right", Right) ]
 end
 
-let univfunc { prefix; suffix; terminator; _ } =
-  (* setting these chars here instead of as constructor payloads because of the way the help text looks*)
+let univfunc Universal.{ prefix; suffix; terminator; _ } =
+  let open Universal in
+  (* setting these chars here instead of as constructor payloads because of the way they make the help text look*)
   let pfix = Bytes.of_string prefix in
   let sfix = Bytes.of_string suffix in
   let print ft pos wid =
@@ -120,7 +110,7 @@ let univfunc { prefix; suffix; terminator; _ } =
   let term =
     match terminator with
     | Newline -> ()
-    | _ ->
+    | Return | Space ->
         Externs.unsafe_output_char stdout '\n';
         Externs.unsafe_flush stdout
   in
@@ -135,7 +125,7 @@ let sbvals text =
     String.length joined_text,
     List.length (uc_charlist joined_text) )
 
-let sbfuncs ltfunc ft { prefix; suffix; terminator; width } cycles =
+let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; width } cycles =
   let bytesofutfchars str visualchars =
     let bytelen, _ =
       Uuseg_string.fold_utf_8 `Grapheme_cluster
@@ -170,7 +160,7 @@ let sbfuncs ltfunc ft { prefix; suffix; terminator; width } cycles =
   in
   let accmfn _ bts pos acc = (pos, bts) :: acc in
   let takeappend r l = List.take r 1 |> List.append l in
-  let print, term = univfunc { prefix; suffix; terminator; width } in
+  let print, term = univfunc Universal.{ prefix; suffix; terminator; width } in
   let loopandprint pwlist =
     let pwlen = List.length pwlist in
     let pwslist = ltfunc pwlist pwlen in
@@ -239,7 +229,9 @@ let run_bounce text Universal.{ prefix; suffix; terminator; width }
         _,
         takeappend,
         totallen ) =
-    sbfuncs ltfunc finaltext { prefix; suffix; terminator; width } cycles
+    sbfuncs ltfunc finaltext
+      Universal.{ prefix; suffix; terminator; width }
+      cycles
   in
   begin
     let open Scroll_step in
@@ -286,14 +278,14 @@ let run_scroll text Universal.{ prefix; suffix; terminator; width }
   let ecp = Bytes.make ecl endcap_char in
   let base = Stdlib.Bytes.cat (Stdlib.Bytes.cat ecp joined_bytes) ecp in
   let finaltext =
-    let open Direction in
+    let open Scroll in
     match direction with
     | Left -> Stdlib.Bytes.cat joined_bytes base
     | Right -> Stdlib.Bytes.cat base joined_bytes
   in
   let ltfunc pwlist pwlen =
     let tot = sleep + rest in
-    let open Scroll_mode in
+    let open Scroll in
     match scroll_mode with
     | Wrap ->
         List.mapi pwlist ~f:(fun i (p, w) ->
@@ -312,12 +304,13 @@ let run_scroll text Universal.{ prefix; suffix; terminator; width }
         rchar,
         takeappend,
         _ ) =
-    sbfuncs ltfunc finaltext { prefix; suffix; terminator; width } cycles
+    sbfuncs ltfunc finaltext
+      Universal.{ prefix; suffix; terminator; width }
+      cycles
   in
   begin
-    let open Direction in
+    let open Scroll in
     let open Scroll_step in
-    let open Scroll_mode in
     match
       ( direction,
         scroll_step,
@@ -418,7 +411,7 @@ let run_split_flap text Universal.{ prefix; suffix; terminator; width }
     List.map txt ~f:(fun x ->
         let diff = width - List.length x in
         let intspace _ = " " in
-        let open Justify in
+        let open Split_flap in
         match (justify, diff = 0) with
         | _, true -> x
         | Left, false -> list_concat ~sep:[] [ x; List.init diff ~f:intspace ]
@@ -440,7 +433,7 @@ let run_split_flap text Universal.{ prefix; suffix; terminator; width }
     len_input_concat - List.length (uc_charlist input_concat)
   in
   let buffer = Bytes.create ((width lsl 2) + excess_bytes) in
-  let print, term = univfunc { prefix; suffix; terminator; width } in
+  let print, term = univfunc Universal.{ prefix; suffix; terminator; width } in
   let rec run_workers counts ~letters ~flips =
     if flips <= 0 then ()
     else begin

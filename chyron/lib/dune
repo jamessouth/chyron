@@ -1,9 +1,9 @@
 (library
  ; (flags :standard -O3 -unbox-closures)
  (flags
-  (:standard -g -w +a -w -3 -w -42 -w -44 -w -49 -w -70 -warn-error +a))
+  (:standard -g -w +a -w -3 -w -4 -w -42 -w -44 -w -49 -w -70 -warn-error +a))
  (ocamlopt_flags
-  (:standard -g -w +a -w -3 -w -42 -w -44 -w -49 -w -70 -warn-error +a))
+  (:standard -g -w +a -w -3 -w -4 -w -42 -w -44 -w -49 -w -70 -warn-error +a))
  (foreign_stubs
   (language c)
   (names nanosleep_stub))

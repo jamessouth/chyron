@@ -1,38 +1,52 @@
 open Chyron
+open Core
 (* open Core_bench *)
 
+module Ints = struct
+  let parseint ~min num =
+    match num |> int_of_string_opt with
+    | Some n -> Int.max min n
+    | None -> invalid_arg "not an int"
+
+  let zeroplus = Command.Arg_type.create (parseint ~min:0)
+  let oneplus = Command.Arg_type.create (parseint ~min:1)
+  let twoplus = Command.Arg_type.create (parseint ~min:2)
+end
+
 let uflags =
+  let open Universal in
   let%map_open.Command prefix =
     flag_optional_with_default_doc "--prefix" ~aliases:[ "-p" ] string
-      (fun x -> Core.String.sexp_of_t x)
+      (fun x -> String.sexp_of_t x)
       ~default:"" ~doc:"string prefix TEXT at left of display\n"
   and suffix =
     flag_optional_with_default_doc "--suffix" ~aliases:[ "-x" ] string
-      (fun x -> Core.String.sexp_of_t x)
+      (fun x -> String.sexp_of_t x)
       ~default:"" ~doc:"string suffix TEXT at right of display\n"
   and terminator =
     flag_optional_with_default_doc "--terminator" ~aliases:[ "-t" ]
-      Terminator.arg Terminator.sexp_of_t ~default:Terminator.Newline
+      terminator_arg sexp_of_terminator ~default:Newline
       ~doc:"string print TEXT with newline, return, or space\n"
   and width =
     flag_optional_with_default_doc "--width" ~aliases:[ "-w" ] Ints.twoplus
-      (fun x -> Core.Int.sexp_of_t x)
+      (fun x -> Int.sexp_of_t x)
       ~default:15 ~doc:"int display width of TEXT, exclusive of {pre,suf}fix\n"
   in
   { prefix; suffix; terminator; width }
 
 let bflags =
+  let open Bounce in
   let%map_open.Command cycles =
     flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.oneplus
-      (fun x -> Core.Int.sexp_of_t x)
+      (fun x -> Int.sexp_of_t x)
       ~default:65_536 ~doc:"int number of complete bounce cycles of TEXT\n"
   and endcap_char =
     flag_optional_with_default_doc "--endcap-char" ~aliases:[ "-e" ] char
-      (fun x -> Core.Char.sexp_of_t x)
+      (fun x -> Char.sexp_of_t x)
       ~default:' ' ~doc:"char endcap on ends of TEXT\n"
   and rest =
     flag_optional_with_default_doc "--rest" ~aliases:[ "-r" ] Ints.zeroplus
-      (fun x -> Core.Int.sexp_of_t x)
+      (fun x -> Int.sexp_of_t x)
       ~default:0 ~doc:"int additional sleep in ms for frames at extremes\n"
   and scroll_step =
     flag_optional_with_default_doc "--scroll-step" ~aliases:[ "-o" ]
@@ -40,43 +54,44 @@ let bflags =
       ~doc:"string scroll TEXT by character or by word\n"
   and sleep =
     flag_optional_with_default_doc "--sleep" ~aliases:[ "-s" ] Ints.oneplus
-      (fun x -> Core.Int.sexp_of_t x)
+      (fun x -> Int.sexp_of_t x)
       ~default:300 ~doc:"int sleep in ms per scroll of TEXT\n"
   in
   { cycles; endcap_char; rest; scroll_step; sleep }
 
 let scflags =
+  let open Scroll in
   let%map_open.Command cycles =
     flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.oneplus
-      (fun x -> Core.Int.sexp_of_t x)
+      (fun x -> Int.sexp_of_t x)
       ~default:65_536 ~doc:"int number of scroll cycles of TEXT\n"
   and direction =
-    flag_optional_with_default_doc "--direction" ~aliases:[ "-d" ] Direction.arg
-      Direction.sexp_of_t ~default:Direction.Left
+    flag_optional_with_default_doc "--direction" ~aliases:[ "-d" ] direction_arg
+      sexp_of_direction ~default:Left
       ~doc:"string scroll TEXT to left or right\n"
   and endcap_char =
     flag_optional_with_default_doc "--endcap-char" ~aliases:[ "-e" ] char
-      (fun x -> Core.Char.sexp_of_t x)
+      (fun x -> Char.sexp_of_t x)
       ~default:' ' ~doc:"char endcap between end and start of TEXT\n"
   and endcap_len =
     flag_optional_with_default_doc "--endcap-len" ~aliases:[ "-l" ] Ints.oneplus
-      (fun x -> Core.Int.sexp_of_t x)
+      (fun x -> Int.sexp_of_t x)
       ~default:1 ~doc:"int minimum length of endcap\n"
   and rest =
     flag_optional_with_default_doc "--rest" ~aliases:[ "-r" ] Ints.zeroplus
-      (fun x -> Core.Int.sexp_of_t x)
+      (fun x -> Int.sexp_of_t x)
       ~default:0 ~doc:"int additional sleep in ms for frames at extremes\n"
   and scroll_step =
     flag_optional_with_default_doc "--scroll-step" ~aliases:[ "-o" ]
       Scroll_step.arg Scroll_step.sexp_of_t ~default:Scroll_step.Char
       ~doc:"string scroll TEXT by character or by word\n"
   and scroll_mode =
-    flag_optional_with_default_doc "--scroll-mode" ~aliases:[ "-m" ]
-      Scroll_mode.arg Scroll_mode.sexp_of_t ~default:Scroll_mode.Wrap
+    flag_optional_with_default_doc "--scroll-mode" ~aliases:[ "-m" ] mode_arg
+      sexp_of_mode ~default:Wrap
       ~doc:"string wrap TEXT around to other side or reset to start\n"
   and sleep =
     flag_optional_with_default_doc "--sleep" ~aliases:[ "-s" ] Ints.oneplus
-      (fun x -> Core.Int.sexp_of_t x)
+      (fun x -> Int.sexp_of_t x)
       ~default:300 ~doc:"int sleep in ms per scroll of TEXT\n"
   in
   {
@@ -91,31 +106,32 @@ let scflags =
   }
 
 let sfflags =
+  let open Split_flap in
   let%map_open.Command sfcycles =
     flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.oneplus
-      (fun x -> Core.Int.sexp_of_t x)
+      (fun x -> Int.sexp_of_t x)
       ~default:65_536 ~doc:"int number of cycles through TEXT\n"
   and flip_hi_bound =
     flag_optional_with_default_doc "--flip-hi-bound" ~aliases:[ "-h" ]
       Ints.twoplus
-      (fun x -> Core.Int.sexp_of_t x)
+      (fun x -> Int.sexp_of_t x)
       ~default:50 ~doc:"int char flips high bound per character position\n"
   and flip_lo_bound =
     flag_optional_with_default_doc "--flip-lo-bound" ~aliases:[ "-l" ]
       Ints.zeroplus
-      (fun x -> Core.Int.sexp_of_t x)
+      (fun x -> Int.sexp_of_t x)
       ~default:20 ~doc:"int char flips low bound per character position\n"
   and flip_sleep =
     flag_optional_with_default_doc "--flip-sleep" ~aliases:[ "-f" ] Ints.oneplus
-      (fun x -> Core.Int.sexp_of_t x)
+      (fun x -> Int.sexp_of_t x)
       ~default:60 ~doc:"int sleep in ms per char flip\n"
   and justify =
-    flag_optional_with_default_doc "--justify" ~aliases:[ "-j" ] Justify.arg
-      Justify.sexp_of_t ~default:Justify.Center
+    flag_optional_with_default_doc "--justify" ~aliases:[ "-j" ] justify_arg
+      sexp_of_justify ~default:Center
       ~doc:"string align TEXT to left, right, or center\n"
   and sfsleep =
     flag_optional_with_default_doc "--sleep" ~aliases:[ "-s" ] Ints.oneplus
-      (fun x -> Core.Int.sexp_of_t x)
+      (fun x -> Int.sexp_of_t x)
       ~default:1500 ~doc:"int sleep in ms per line after char flips complete\n"
   in
   if flip_hi_bound < flip_lo_bound then
