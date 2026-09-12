@@ -48,16 +48,16 @@ let bflags =
     flag_optional_with_default_doc "--rest" ~aliases:[ "-r" ] Ints.zeroplus
       (fun x -> Int.sexp_of_t x)
       ~default:0 ~doc:"int additional sleep in ms for frames at extremes\n"
-  and scroll_step =
-    flag_optional_with_default_doc "--scroll-step" ~aliases:[ "-o" ]
-      Scroll_step.arg Scroll_step.sexp_of_t ~default:Scroll_step.Char
+  and step =
+    flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.Step.arg
+      Sb.Step.sexp_of_t ~default:Sb.Step.Char
       ~doc:"string scroll TEXT by character or by word\n"
   and sleep =
     flag_optional_with_default_doc "--sleep" ~aliases:[ "-s" ] Ints.oneplus
       (fun x -> Int.sexp_of_t x)
       ~default:300 ~doc:"int sleep in ms per scroll of TEXT\n"
   in
-  { cycles; endcap_char; rest; scroll_step; sleep }
+  { cycles; endcap_char; rest; step; sleep }
 
 let scflags =
   let open Scroll in
@@ -81,9 +81,9 @@ let scflags =
     flag_optional_with_default_doc "--rest" ~aliases:[ "-r" ] Ints.zeroplus
       (fun x -> Int.sexp_of_t x)
       ~default:0 ~doc:"int additional sleep in ms for frames at extremes\n"
-  and scroll_step =
-    flag_optional_with_default_doc "--scroll-step" ~aliases:[ "-o" ]
-      Scroll_step.arg Scroll_step.sexp_of_t ~default:Scroll_step.Char
+  and step =
+    flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.Step.arg
+      Sb.Step.sexp_of_t ~default:Sb.Step.Char
       ~doc:"string scroll TEXT by character or by word\n"
   and scroll_mode =
     flag_optional_with_default_doc "--scroll-mode" ~aliases:[ "-m" ] mode_arg
@@ -94,16 +94,7 @@ let scflags =
       (fun x -> Int.sexp_of_t x)
       ~default:300 ~doc:"int sleep in ms per scroll of TEXT\n"
   in
-  {
-    cycles;
-    direction;
-    endcap_char;
-    endcap_len;
-    rest;
-    scroll_mode;
-    scroll_step;
-    sleep;
-  }
+  { cycles; direction; endcap_char; endcap_len; rest; scroll_mode; step; sleep }
 
 let sfflags =
   let open Split_flap in
@@ -141,25 +132,26 @@ let sfflags =
 let bounce =
   Command.basic ~summary:"Bounce TEXT left and right."
     ~readme:(fun () ->
-      "Bounce TEXT by --scroll-step with speed --sleep back and forth --cycles \
-       times.\n\
-       If TEXT is shorter than --width, an endcap string made of --endcap-char \
-       will be added to the beginning and end of TEXT. Each frame\n\
-       of TEXT will be printed in --width along with any --prefix and \
-       --suffix, plus\n\
-       --terminator. An optional --rest can be given to extend the on-screen \
-       time of\n\
-       some frames that may otherwise only be shown very briefly.")
+      "Bounce TEXT back and forth by --step every --sleep ms --cycles times. \
+       If TEXT\n\
+       is shorter than --width, an endcap string made of --endcap-char will be \
+       added\n\
+       to each end. Each frame of TEXT prints --width characters plus any \
+       --prefix\n\
+       and --suffix, plus --terminator. An optional --rest can be given to \
+       extend the\n\
+       on-screen time of some frames that may otherwise only be shown very \
+       briefly.")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags
      and bflags in
-     fun () -> run_bounce text uflags bflags)
+     fun () -> Bounce.run_bounce text uflags bflags)
 
 let scroll =
   Command.basic ~summary:"Scroll TEXT left or right."
     ~readme:(fun () ->
-      "Scroll TEXT by --scroll-step in --scroll-mode with speed --sleep. Scrolls\n\
+      "Scroll TEXT by --step in --scroll-mode with speed --sleep. Scrolls\n\
        through all of TEXT --cycles times in --direction. An endcap string made\n\
        of --endcap-char with length --endcap-len will sit between the end and\n\
        beginning of TEXT. Each frame of TEXT will be printed in --width along\n\
@@ -170,7 +162,7 @@ let scroll =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags
      and scflags in
-     fun () -> run_scroll text uflags scflags)
+     fun () -> Scroll.run_scroll text uflags scflags)
 
 let split_flap =
   Command.basic ~summary:"Show TEXT as a split-flap display."
@@ -184,7 +176,7 @@ let split_flap =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags
      and sfflags in
-     fun () -> run_split_flap text uflags sfflags)
+     fun () -> Split_flap.run_split_flap text uflags sfflags)
 
 let () =
   Command_unix.run ~version:"1.0" ~build_info:"tbd"
