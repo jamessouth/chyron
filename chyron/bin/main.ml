@@ -101,7 +101,7 @@ let sfflags =
   let%map_open.Command sfcycles =
     flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.oneplus
       (fun x -> Int.sexp_of_t x)
-      ~default:65_536 ~doc:"int number of cycles through TEXT\n"
+      ~default:65_536 ~doc:"int number of cycles through the lines of TEXT\n"
   and flip_hi_bound =
     flag_optional_with_default_doc "--flip-hi-bound" ~aliases:[ "-h" ]
       Ints.twoplus
@@ -168,11 +168,12 @@ let scroll =
 let split_flap =
   Command.basic ~summary:"Show TEXT as a split-flap display."
     ~readme:(fun () ->
-      "Show TEXT --cycles times with duration --sleep per line. Each character\n\
-       flips between --flip-lo-bound and --flip-hi-bound times at a rate of\n\
-       --flip-sleep ms per flip. TEXT will be --justify aligned. Each frame of\n\
-       TEXT will be printed in --width along with any --prefix and --suffix,\n\
-       plus --terminator.")
+      "Break TEXT into lines and show --cycles times for --sleep ms per line. \
+       Each\n\
+       character flips between --flip-lo-bound and --flip-hi-bound times at a \
+       rate\n\
+       of --flip-sleep ms per flip. Each line is --justify aligned and prints\n\
+       --width characters plus any --prefix and --suffix, plus --terminator.")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags
