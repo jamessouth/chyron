@@ -136,7 +136,7 @@ let bounce =
        If TEXT\n\
        is shorter than --width, an endcap string made of --endcap-char will be \
        added\n\
-       to each end. Each frame of TEXT prints --width characters plus any \
+       to each end. Each frame of TEXT prints --width characters, plus any \
        --prefix\n\
        and --suffix, plus --terminator. An optional --rest can be given to \
        extend the\n\
@@ -156,7 +156,8 @@ let scroll =
        An endcap string made of --endcap-char with length --endcap-len will be \
        added\n\
        between the end and beginning of TEXT. Each frame of TEXT prints --width\n\
-       characters plus any --prefix and --suffix, plus --terminator. An optional\n\
+       characters, plus any --prefix and --suffix, plus --terminator. An \
+       optional\n\
        --rest can be given to extend the on-screen time of some frames that may\n\
        otherwise only be shown very briefly.")
     (let%map_open.Command text =
@@ -173,7 +174,7 @@ let split_flap =
        character flips between --flip-lo-bound and --flip-hi-bound times at a \
        rate\n\
        of --flip-sleep ms per flip. Each line is --justify aligned and prints\n\
-       --width characters plus any --prefix and --suffix, plus --terminator.")
+       --width characters, plus any --prefix and --suffix, plus --terminator.")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags
