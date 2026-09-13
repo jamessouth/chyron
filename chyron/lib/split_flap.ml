@@ -16,6 +16,97 @@ let justify_arg =
     ~case_sensitive:false ~list_values_in_help:false
     [ ("center", Center); ("left", Left); ("right", Right) ]
 
+let alpha_lower =
+  [
+    "a";
+    "b";
+    "c";
+    "d";
+    "e";
+    "f";
+    "g";
+    "h";
+    "i";
+    "j";
+    "k";
+    "l";
+    "m";
+    "n";
+    "o";
+    "p";
+    "q";
+    "r";
+    "s";
+    "t";
+    "u";
+    "v";
+    "w";
+    "x";
+    "y";
+    "z";
+  ]
+
+let alpha_upper =
+  [
+    "A";
+    "B";
+    "C";
+    "D";
+    "E";
+    "F";
+    "G";
+    "H";
+    "I";
+    "J";
+    "K";
+    "L";
+    "M";
+    "N";
+    "O";
+    "P";
+    "Q";
+    "R";
+    "S";
+    "T";
+    "U";
+    "V";
+    "W";
+    "X";
+    "Y";
+    "Z";
+  ]
+
+let numbers = [ "0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9" ]
+let symbols1 = [ " "; "!"; "@"; "#"; "$"; "%"; "^"; "&"; "*"; "("; ")" ]
+
+let symbols2 =
+  [
+    "`";
+    "~";
+    "-";
+    "_";
+    "=";
+    "+";
+    "[";
+    "]";
+    "{";
+    "}";
+    "\\";
+    "|";
+    ";";
+    ":";
+    "'";
+    "\"";
+    ",";
+    "<";
+    ".";
+    ">";
+    "/";
+    "?";
+  ]
+
+let letters = alpha_lower
+
 let run_split_flap text Universal.{ prefix; suffix; terminator; width }
     { cycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sleep } =
   let rec list_concat ~sep = function
@@ -79,11 +170,8 @@ let run_split_flap text Universal.{ prefix; suffix; terminator; width }
               [ List.init r ~f:intspace; x; List.init (diff - r) ~f:intspace ])
   in
   let finaltex = text |> breakdown |> buildup |> pad in
-  let ltrs =
-    Array.of_list
-      [ "a"; "v"; "h"; "w"; "t"; "u"; "z"; "A"; "E"; "T"; "C"; "P"; "2"; "6" ]
-  in
-  let len_ltrs = Array.length ltrs in
+  let letters_arr = Array.of_list letters in
+  let len_letters = Array.length letters_arr in
   let input_concat = String.concat text in
   let len_input_concat = String.length input_concat in
   let excess_bytes =
@@ -98,7 +186,8 @@ let run_split_flap text Universal.{ prefix; suffix; terminator; width }
     else begin
       let line =
         List.map2_exn counts letters ~f:(fun c l ->
-            if c < 1 then l else Random.int len_ltrs |> Array.unsafe_get ltrs)
+            if c < 1 then l
+            else Random.int len_letters |> Array.unsafe_get letters_arr)
         |> String.concat ~sep:""
       in
       let llen = String.length line in
