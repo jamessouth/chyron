@@ -42,6 +42,7 @@ let printandterm { prefix; suffix; terminator; _ } =
     Externs.unsafe_flush stdout
   in
   let term =
+   fun () ->
     match terminator with
     | Newline -> ()
     | Return | Space ->

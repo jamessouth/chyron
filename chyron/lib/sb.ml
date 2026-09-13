@@ -67,7 +67,7 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; width } cycles =
     let jumpdist = 3 in
     let arrlen = Array.length indexes - jumpdist in
     let rec loop ticks idx =
-      if ticks <= 0 then ()
+      if ticks <= 0 then term ()
       else begin
         print ft
           (Array.unsafe_get indexes idx)
@@ -81,7 +81,6 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; width } cycles =
     loop (pwlen * cycles) 0
   in
   ( loopandprint,
-    term,
     totallen - bytesofutfchars (String.concat charlist) width,
     totallen asr 1,
     ucinds true charlist wordsplitfn

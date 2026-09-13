@@ -11,6 +11,7 @@ module Ints = struct
   let zeroplus = Command.Arg_type.create (parseint ~min:0)
   let oneplus = Command.Arg_type.create (parseint ~min:1)
   let twoplus = Command.Arg_type.create (parseint ~min:2)
+  let two_16 = 65_536
 end
 
 let uflags =
@@ -39,7 +40,7 @@ let bflags =
   let%map_open.Command cycles =
     flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.oneplus
       (fun x -> Int.sexp_of_t x)
-      ~default:65_536 ~doc:"int number of complete bounce cycles of TEXT\n"
+      ~default:Ints.two_16 ~doc:"int number of complete bounce cycles of TEXT\n"
   and endcap_char =
     flag_optional_with_default_doc "--endcap-char" ~aliases:[ "-e" ] char
       (fun x -> Char.sexp_of_t x)
@@ -64,7 +65,7 @@ let scflags =
   let%map_open.Command cycles =
     flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.oneplus
       (fun x -> Int.sexp_of_t x)
-      ~default:65_536 ~doc:"int number of scroll cycles of TEXT\n"
+      ~default:Ints.two_16 ~doc:"int number of scroll cycles of TEXT\n"
   and direction =
     flag_optional_with_default_doc "--direction" ~aliases:[ "-d" ] direction_arg
       sexp_of_direction ~default:Left
@@ -77,31 +78,32 @@ let scflags =
     flag_optional_with_default_doc "--endcap-len" ~aliases:[ "-l" ] Ints.oneplus
       (fun x -> Int.sexp_of_t x)
       ~default:1 ~doc:"int minimum length of endcap\n"
-  and rest =
-    flag_optional_with_default_doc "--rest" ~aliases:[ "-r" ] Ints.zeroplus
-      (fun x -> Int.sexp_of_t x)
-      ~default:0 ~doc:"int additional sleep in ms for frames at extremes\n"
-  and step =
-    flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.Step.arg
-      Sb.Step.sexp_of_t ~default:Sb.Step.Char
-      ~doc:"string scroll TEXT by character or by word\n"
   and mode =
     flag_optional_with_default_doc "--mode" ~aliases:[ "-m" ] mode_arg
       sexp_of_mode ~default:Wrap
       ~doc:"string wrap TEXT around to other side or reset to start\n"
+  and rest =
+    flag_optional_with_default_doc "--rest" ~aliases:[ "-r" ] Ints.zeroplus
+      (fun x -> Int.sexp_of_t x)
+      ~default:0 ~doc:"int additional sleep in ms for frames at extremes\n"
   and sleep =
     flag_optional_with_default_doc "--sleep" ~aliases:[ "-s" ] Ints.oneplus
       (fun x -> Int.sexp_of_t x)
       ~default:300 ~doc:"int sleep in ms per scroll of TEXT\n"
+  and step =
+    flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.Step.arg
+      Sb.Step.sexp_of_t ~default:Sb.Step.Char
+      ~doc:"string scroll TEXT by character or by word\n"
   in
-  { cycles; direction; endcap_char; endcap_len; rest; mode; step; sleep }
+  { cycles; direction; endcap_char; endcap_len; mode; rest; sleep; step }
 
 let sfflags =
   let open Split_flap in
-  let%map_open.Command sfcycles =
+  let%map_open.Command cycles =
     flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] Ints.oneplus
       (fun x -> Int.sexp_of_t x)
-      ~default:65_536 ~doc:"int number of cycles through the lines of TEXT\n"
+      ~default:Ints.two_16
+      ~doc:"int number of cycles through the lines of TEXT\n"
   and flip_hi_bound =
     flag_optional_with_default_doc "--flip-hi-bound" ~aliases:[ "-h" ]
       Ints.twoplus
@@ -120,14 +122,14 @@ let sfflags =
     flag_optional_with_default_doc "--justify" ~aliases:[ "-j" ] justify_arg
       sexp_of_justify ~default:Center
       ~doc:"string align TEXT to left, right, or center\n"
-  and sfsleep =
+  and sleep =
     flag_optional_with_default_doc "--sleep" ~aliases:[ "-s" ] Ints.oneplus
       (fun x -> Int.sexp_of_t x)
       ~default:1500 ~doc:"int sleep in ms per line after char flips complete\n"
   in
   if flip_hi_bound < flip_lo_bound then
     invalid_arg "flip_hi_bound is less than flip_lo_bound";
-  { sfcycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sfsleep }
+  { cycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sleep }
 
 let bounce =
   Command.basic ~summary:"Bounce TEXT left and right."

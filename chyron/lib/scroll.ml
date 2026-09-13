@@ -8,10 +8,10 @@ type t = {
   direction : direction;
   endcap_char : char;
   endcap_len : int;
-  rest : int;
   mode : mode;
-  step : Sb.Step.t;
+  rest : int;
   sleep : int;
+  step : Sb.Step.t;
 }
 
 let direction_arg =
@@ -50,7 +50,6 @@ let run_scroll text Universal.{ prefix; suffix; terminator; width }
             if i = 0 || i = pred pwlen then (p, w, tot) else (p, w, sleep))
   in
   let ( loopandprint,
-        term,
         lenminuswidth,
         halflen,
         brword,
@@ -105,5 +104,4 @@ let run_scroll text Universal.{ prefix; suffix; terminator; width }
       end
     | Right, Word, Wrap, (Greater | Equal | Less) ->
         List.take brword (List.length text) |> loopandprint
-  end;
-  term
+  end

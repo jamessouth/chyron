@@ -27,7 +27,6 @@ let run_bounce text Universal.{ prefix; suffix; terminator; width }
         if p = 0 || p = maxpos then (p, w, tot) else (p, w, sleep))
   in
   let ( loopandprint,
-        term,
         lenminuswidth,
         _,
         brword,
@@ -61,5 +60,4 @@ let run_bounce text Universal.{ prefix; suffix; terminator; width }
     | Word, (Equal | Less) ->
         [ (0, jointextlen + ecl); (lenminuswidth, jointextlen + ecl) ]
         |> loopandprint
-  end;
-  term
+  end

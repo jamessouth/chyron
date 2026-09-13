@@ -3,12 +3,12 @@ open Core
 type justify = Center | Left | Right [@@deriving sexp]
 
 type t = {
-  sfcycles : int;
+  cycles : int;
   flip_hi_bound : int;
   flip_lo_bound : int;
   flip_sleep : int;
   justify : justify;
-  sfsleep : int;
+  sleep : int;
 }
 
 let justify_arg =
@@ -17,7 +17,7 @@ let justify_arg =
     [ ("center", Center); ("left", Left); ("right", Right) ]
 
 let run_split_flap text Universal.{ prefix; suffix; terminator; width }
-    { sfcycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sfsleep } =
+    { cycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sleep } =
   let rec list_concat ~sep = function
     | [] -> []
     | [ s ] -> s
@@ -114,20 +114,19 @@ let run_split_flap text Universal.{ prefix; suffix; terminator; width }
     let wl_len = List.length wordlist in
     let wordarray = Array.of_list wordlist in
     let rec loop ticks idx =
-      if ticks <= 0 then ()
+      if ticks <= 0 then term ()
       else begin
         List.init width ~f:(fun _ ->
             Random.int_incl flip_lo_bound flip_hi_bound)
         |> run_workers
              ~letters:(Array.unsafe_get wordarray idx)
              ~flips:(succ flip_hi_bound);
-        Universal.Externs.caml_clock_nanosleep sfsleep;
+        Universal.Externs.caml_clock_nanosleep sleep;
         let nidx = if idx = pred wl_len then 0 else succ idx in
         (loop [@tailcall]) (pred ticks) nidx
       end
     in
-    loop (wl_len * sfcycles) 0
+    loop (wl_len * cycles) 0
   in
   ();
-  loopandprint finaltex;
-  term
+  loopandprint finaltex
