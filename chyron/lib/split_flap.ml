@@ -2,7 +2,11 @@ open Core
 
 type justify = Center | Left | Right [@@deriving sexp]
 
+type charset = Lowers | Uppers | Numbers | Symbols1 | Symbols2
+[@@deriving sexp]
+
 type t = {
+  charsets : charset list;
   cycles : int;
   flip_hi_bound : int;
   flip_lo_bound : int;
@@ -16,7 +20,18 @@ let justify_arg =
     ~case_sensitive:false ~list_values_in_help:false
     [ ("center", Center); ("left", Left); ("right", Right) ]
 
-let alpha_lower =
+let charset_arg =
+  Command.Arg_type.comma_separated ~allow_empty:true ~strip_whitespace:true
+    ~unique_values:true
+    (Command.Arg_type.create (function
+      | "lowers" -> Lowers
+      | "uppers" -> Uppers
+      | "numbers" -> Numbers
+      | "symbols1" -> Symbols1
+      | "symbols2" -> Symbols2
+      | unk -> invalid_argf "invalid selection: '%s'" unk ()))
+
+let lowers =
   [
     "a";
     "b";
@@ -44,9 +59,10 @@ let alpha_lower =
     "x";
     "y";
     "z";
+    " ";
   ]
 
-let alpha_upper =
+let uppers =
   [
     "A";
     "B";
@@ -74,10 +90,11 @@ let alpha_upper =
     "X";
     "Y";
     "Z";
+    " ";
   ]
 
-let numbers = [ "0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9" ]
-let symbols1 = [ " "; "!"; "@"; "#"; "$"; "%"; "^"; "&"; "*"; "("; ")" ]
+let numbers = [ "0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9"; " " ]
+let symbols1 = [ "!"; "@"; "#"; "$"; "%"; "^"; "&"; "*"; "("; ")"; " " ]
 
 let symbols2 =
   [
@@ -103,12 +120,19 @@ let symbols2 =
     ">";
     "/";
     "?";
+    " ";
   ]
 
-let letters = alpha_lower
-
 let run_split_flap text Universal.{ prefix; suffix; terminator; width }
-    { cycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sleep } =
+    {
+      charsets;
+      cycles;
+      flip_hi_bound;
+      flip_lo_bound;
+      flip_sleep;
+      justify;
+      sleep;
+    } =
   let rec list_concat ~sep = function
     | [] -> []
     | [ s ] -> s
@@ -169,6 +193,26 @@ let run_split_flap text Universal.{ prefix; suffix; terminator; width }
             list_concat ~sep:[]
               [ List.init r ~f:intspace; x; List.init (diff - r) ~f:intspace ])
   in
+
+  let letters =
+    let rec loop acc = function
+      | [] -> List.rev acc |> list_concat ~sep:[]
+      | h :: t ->
+          let lt =
+            match h with
+            | Lowers -> lowers
+            | Uppers -> uppers
+            | Numbers -> numbers
+            | Symbols1 -> symbols1
+            | Symbols2 -> symbols2
+          in
+          loop (lt :: acc) t
+    in
+    loop [] charsets
+  in
+
+  print_endline @@ List.to_string ~f:Fn.id letters;
+
   let finaltex = text |> breakdown |> buildup |> pad in
   let letters_arr = Array.of_list letters in
   let len_letters = Array.length letters_arr in

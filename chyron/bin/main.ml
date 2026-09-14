@@ -97,7 +97,10 @@ let scflags =
 
 let sfflags =
   let open Split_flap in
-  let%map_open.Command cycles =
+  let%map_open.Command charsets =
+    flag_optional_with_default_doc "--charsets" ~aliases:[ "-a" ] charset_arg
+      sexp_of_charset ~default:[] ~doc:"charset vvvvvvvvvvv\n"
+  and cycles =
     flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] int
       (fun x -> Int.sexp_of_t x)
       ~default:cycmin ~doc:"int number of cycles through the lines of TEXT\n"
@@ -129,7 +132,7 @@ let sfflags =
     invalid_arg "flip_hi_bound is less than flip_lo_bound";
   if flip_sleep < 1 then invalid_arg "flip_sleep less than 1";
   if sleep < 1 then invalid_arg "sleep less than 1";
-  { cycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sleep }
+  { charsets; cycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sleep }
 
 let bounce =
   Command.basic ~summary:"Bounce TEXT left and right."
