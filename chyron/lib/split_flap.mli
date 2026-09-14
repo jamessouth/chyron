@@ -2,9 +2,10 @@ type justify = Center | Left | Right
 
 val sexp_of_justify : justify -> Sexplib0.Sexp.t
 
-type charset = Lowers | Uppers | Numbers | Symbols1 | Symbols2
+type charset = All | Lowers | Numbers | Symbols1 | Symbols2 | Uppers
 
 val sexp_of_charset : charset -> Sexplib0.Sexp.t
+val equal_charset : charset -> charset -> bool
 
 type t = {
   charsets : charset list;

@@ -2,8 +2,8 @@ open Core
 
 type justify = Center | Left | Right [@@deriving sexp]
 
-type charset = Lowers | Uppers | Numbers | Symbols1 | Symbols2
-[@@deriving sexp]
+type charset = All | Lowers | Numbers | Symbols1 | Symbols2 | Uppers
+[@@deriving equal, sexp]
 
 type t = {
   charsets : charset list;
@@ -22,14 +22,14 @@ let justify_arg =
 
 let charset_arg =
   Command.Arg_type.comma_separated ~allow_empty:true ~strip_whitespace:true
-    ~unique_values:true
     (Command.Arg_type.create (function
+      | "all" -> All
       | "lowers" -> Lowers
       | "uppers" -> Uppers
       | "numbers" -> Numbers
       | "symbols1" -> Symbols1
       | "symbols2" -> Symbols2
-      | unk -> invalid_argf "invalid selection: '%s'" unk ()))
+      | _ -> invalid_arg "invalid selection"))
 
 let lowers =
   [
@@ -194,12 +194,23 @@ let run_split_flap text Universal.{ prefix; suffix; terminator; width }
               [ List.init r ~f:intspace; x; List.init (diff - r) ~f:intspace ])
   in
 
+  let rec dedup_charsets = function
+    | [] -> []
+    | h :: t ->
+        if List.mem t h ~equal:(fun x y -> equal_charset x y) then
+          h
+          :: dedup_charsets
+               (List.filter t ~f:(fun x -> not (equal_charset h x)))
+        else h :: dedup_charsets t
+  in
+
   let letters =
     let rec loop acc = function
       | [] -> List.rev acc |> list_concat ~sep:[]
       | h :: t ->
           let lt =
             match h with
+            | All -> lowers
             | Lowers -> lowers
             | Uppers -> uppers
             | Numbers -> numbers
@@ -208,7 +219,10 @@ let run_split_flap text Universal.{ prefix; suffix; terminator; width }
           in
           loop (lt :: acc) t
     in
-    loop [] charsets
+    loop []
+      (if List.mem charsets All ~equal:(fun x y -> equal_charset x y) then
+         [ Lowers; Uppers; Numbers; Symbols1; Symbols2 ]
+       else dedup_charsets charsets)
   in
 
   print_endline @@ List.to_string ~f:Fn.id letters;
