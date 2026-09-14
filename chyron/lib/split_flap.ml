@@ -21,14 +21,14 @@ let justify_arg =
     [ ("center", Center); ("left", Left); ("right", Right) ]
 
 let charset_arg =
-  Command.Arg_type.comma_separated ~allow_empty:true ~strip_whitespace:true
+  Command.Arg_type.comma_separated ~strip_whitespace:true
     (Command.Arg_type.create (function
-      | "all" -> All
-      | "lowers" -> Lowers
-      | "uppers" -> Uppers
-      | "numbers" -> Numbers
-      | "symbols1" -> Symbols1
-      | "symbols2" -> Symbols2
+      | "all" | "All" -> All
+      | "lowers" | "Lowers" -> Lowers
+      | "uppers" | "Uppers" -> Uppers
+      | "numbers" | "Numbers" -> Numbers
+      | "symbols1" | "Symbols1" -> Symbols1
+      | "symbols2" | "Symbols2" -> Symbols2
       | _ -> invalid_arg "invalid selection"))
 
 let lowers =
@@ -197,11 +197,8 @@ let run_split_flap text Universal.{ prefix; suffix; terminator; width }
   let rec dedup_charsets = function
     | [] -> []
     | h :: t ->
-        if List.mem t h ~equal:(fun x y -> equal_charset x y) then
-          h
-          :: dedup_charsets
-               (List.filter t ~f:(fun x -> not (equal_charset h x)))
-        else h :: dedup_charsets t
+        h
+        :: dedup_charsets (List.filter t ~f:(fun x -> not (equal_charset h x)))
   in
 
   let letters =
@@ -210,7 +207,7 @@ let run_split_flap text Universal.{ prefix; suffix; terminator; width }
       | h :: t ->
           let lt =
             match h with
-            | All -> lowers
+            | All -> []
             | Lowers -> lowers
             | Uppers -> uppers
             | Numbers -> numbers

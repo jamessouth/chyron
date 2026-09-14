@@ -102,8 +102,9 @@ let sfflags =
       (fun x -> List.sexp_of_t sexp_of_charset x)
       ~default:[ All ]
       ~doc:
-        "charset characters to flip through. choose any combination of lowers, \
-         uppers, numbers, symbols1, symbols2, or all in a comma-separated list\n"
+        "string characters to flip through. pass a comma- separated list \
+         (either quoted or without spaces) with these names: lowers, uppers, \
+         numbers, symbols1, symbols2, or all\n"
   and cycles =
     flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] int
       (fun x -> Int.sexp_of_t x)
