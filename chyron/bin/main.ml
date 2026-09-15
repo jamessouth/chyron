@@ -98,13 +98,12 @@ let scflags =
 let sfflags =
   let open Split_flap in
   let%map_open.Command charsets =
-    flag_optional_with_default_doc "--charsets" ~aliases:[ "-a" ] charset_arg
-      (fun x -> List.sexp_of_t sexp_of_charset x)
-      ~default:[ All ]
+    flag_optional_with_default_doc "--charsets" ~aliases:[ "-a" ] Charset.arg
+      (fun x -> List.sexp_of_t Charset.sexp_of_t x)
+      ~default:Charset.all
       ~doc:
         "string characters to flip through. pass a comma- separated list \
-         (either quoted or without spaces) with these names: lowers, uppers, \
-         numbers, symbols1, symbols2, or all\n"
+         (either quoted or without spaces)\n"
   and cycles =
     flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] int
       (fun x -> Int.sexp_of_t x)

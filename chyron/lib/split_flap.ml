@@ -3,22 +3,15 @@ open Core
 let rec list_concat ~sep = function
   | [] -> []
   | [ s ] -> s
-  | h :: t -> list_concat ~sep t |> List.append (sep |> List.append h)
+  | h :: t -> list_concat ~sep t |> List.append (List.append h sep)
 
 module Charset = struct
-  type t = All | Lowers | Numbers | Symbols1 | Symbols2 | Uppers
-  [@@deriving equal, sexp]
+  type t = Lowers | Uppers | Numbers | Symbols1 | Symbols2 | Distros
+  [@@deriving enumerate, sexp]
 
-  let charset_arg =
+  let arg =
     Command.Arg_type.comma_separated ~strip_whitespace:true
-      (Command.Arg_type.create (function
-        | "all" | "All" -> All
-        | "lowers" | "Lowers" -> Lowers
-        | "uppers" | "Uppers" -> Uppers
-        | "numbers" | "Numbers" -> Numbers
-        | "symbols1" | "Symbols1" -> Symbols1
-        | "symbols2" | "Symbols2" -> Symbols2
-        | _ -> invalid_arg "invalid selection"))
+      (Command.Arg_type.create (fun x -> t_of_sexp (sexp_of_string x)))
 
   let lowers =
     [
@@ -112,10 +105,47 @@ module Charset = struct
       " ";
     ]
 
-  let rec dedup_charsets = function
-    | [] -> []
-    | h :: t ->
-        h :: dedup_charsets (List.filter t ~f:(fun x -> not (equal h x)))
+  let distros =
+    [
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "󱄛";
+      "";
+      "";
+      "";
+      "";
+      "󰣨";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "󱄚";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+    ]
 
   let letters charsets =
     let rec loop acc = function
@@ -123,22 +153,24 @@ module Charset = struct
       | h :: t ->
           let lt =
             match h with
-            | All -> []
             | Lowers -> lowers
             | Uppers -> uppers
             | Numbers -> numbers
             | Symbols1 -> symbols1
             | Symbols2 -> symbols2
+            | Distros -> distros
           in
           loop (lt :: acc) t
     in
-    loop []
-      (if List.mem charsets All ~equal:(fun x y -> equal x y) then
-         [ Lowers; Uppers; Numbers; Symbols1; Symbols2 ]
-       else dedup_charsets charsets)
+    loop [] charsets
 end
 
 type justify = Center | Left | Right [@@deriving sexp]
+
+let justify_arg =
+  Command.Arg_type.of_alist_exn ~accept_unique_prefixes:true
+    ~case_sensitive:false ~list_values_in_help:false
+    [ ("center", Center); ("left", Left); ("right", Right) ]
 
 type t = {
   charsets : Charset.t list;
@@ -150,10 +182,58 @@ type t = {
   sleep : int;
 }
 
-let justify_arg =
-  Command.Arg_type.of_alist_exn ~accept_unique_prefixes:true
-    ~case_sensitive:false ~list_values_in_help:false
-    [ ("center", Center); ("left", Left); ("right", Right) ]
+let breakdown wid txt =
+  let ltt =
+    List.fold txt ~init:[] ~f:(fun acc x ->
+        let lt = List.rev (Universal.uc_charlist x) in
+        lt :: acc)
+    |> List.rev
+  in
+  let rec loop txt =
+    match List.for_all txt ~f:(fun x -> List.length x <= wid) with
+    | true -> txt
+    | false ->
+        List.fold (List.rev txt) ~init:[] ~f:(fun acc x ->
+            let vis = List.length x in
+            if vis > wid then
+              let l, r = List.split_n x (List.length x asr 1) in
+              l :: r :: acc
+            else x :: acc)
+        |> (loop [@tailcall])
+  in
+  loop ltt
+
+let buildup wid txt =
+  let sub = List.sub txt in
+  let rec loop acc pos len =
+    let predlen = pred len in
+    match pos + len > List.length txt with
+    | true ->
+        let lt = if predlen = 0 then acc else sub ~pos ~len:predlen :: acc in
+        List.rev_map lt ~f:(fun x -> list_concat ~sep:[ " " ] x)
+    | false -> begin
+        let vis = list_concat ~sep:[ " " ] (sub ~pos ~len) |> List.length in
+        match Ordering.of_int (compare vis wid) with
+        | Less -> (loop [@tailcall]) acc pos (succ len)
+        | Greater ->
+            (loop [@tailcall]) (sub ~pos ~len:predlen :: acc) (pos + predlen) 1
+        | Equal -> (loop [@tailcall]) (sub ~pos ~len :: acc) (pos + len) 1
+      end
+  in
+  loop [] 0 1
+
+let pad wid justify txt =
+  List.map txt ~f:(fun x ->
+      let diff = wid - List.length x in
+      let intspace _ = " " in
+      match (justify, diff = 0) with
+      | _, true -> x
+      | Left, false -> list_concat ~sep:[] [ x; List.init diff ~f:intspace ]
+      | Right, false -> list_concat ~sep:[] [ List.init diff ~f:intspace; x ]
+      | Center, false ->
+          let r = diff / 2 in
+          list_concat ~sep:[]
+            [ List.init r ~f:intspace; x; List.init (diff - r) ~f:intspace ])
 
 let run_split_flap text Universal.{ prefix; suffix; terminator; width }
     {
@@ -165,66 +245,11 @@ let run_split_flap text Universal.{ prefix; suffix; terminator; width }
       justify;
       sleep;
     } =
-  let breakdown txt =
-    let ltt =
-      List.fold txt ~init:[] ~f:(fun acc x ->
-          let lt = List.rev (Universal.uc_charlist x) in
-          lt :: acc)
-      |> List.rev
-    in
-    let rec loop txt =
-      match List.for_all txt ~f:(fun x -> List.length x <= width) with
-      | true -> txt
-      | false ->
-          List.fold (List.rev txt) ~init:[] ~f:(fun acc x ->
-              let vis = List.length x in
-              if vis > width then
-                let l, r = List.split_n x (List.length x asr 1) in
-                l :: r :: acc
-              else x :: acc)
-          |> (loop [@tailcall])
-    in
-    loop ltt
+  let finaltex =
+    text |> breakdown width |> buildup width |> pad width justify
   in
-  let buildup txt =
-    let sub = List.sub txt in
-    let rec loop acc pos len =
-      let predlen = pred len in
-      match pos + len > List.length txt with
-      | true ->
-          let lt = if predlen = 0 then acc else sub ~pos ~len:predlen :: acc in
-          List.rev_map lt ~f:(fun x -> list_concat ~sep:[ " " ] x)
-      | false -> begin
-          let vis = list_concat ~sep:[ " " ] (sub ~pos ~len) |> List.length in
-          match Ordering.of_int (compare vis width) with
-          | Less -> (loop [@tailcall]) acc pos (succ len)
-          | Greater ->
-              (loop [@tailcall])
-                (sub ~pos ~len:predlen :: acc)
-                (pos + predlen) 1
-          | Equal -> (loop [@tailcall]) (sub ~pos ~len :: acc) (pos + len) 1
-        end
-    in
-    loop [] 0 1
-  in
-  let pad txt =
-    List.map txt ~f:(fun x ->
-        let diff = width - List.length x in
-        let intspace _ = " " in
-        match (justify, diff = 0) with
-        | _, true -> x
-        | Left, false -> list_concat ~sep:[] [ x; List.init diff ~f:intspace ]
-        | Right, false -> list_concat ~sep:[] [ List.init diff ~f:intspace; x ]
-        | Center, false ->
-            let r = diff / 2 in
-            list_concat ~sep:[]
-              [ List.init r ~f:intspace; x; List.init (diff - r) ~f:intspace ])
-  in
-
   let letters = Charset.letters charsets in
   print_endline @@ List.to_string ~f:Fn.id letters;
-
-  let finaltex = text |> breakdown |> buildup |> pad in
   let letters_arr = Array.of_list letters in
   let len_letters = Array.length letters_arr in
   let input_concat = String.concat text in

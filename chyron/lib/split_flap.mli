@@ -1,14 +1,18 @@
+module Charset : sig
+  type t = Lowers | Uppers | Numbers | Symbols1 | Symbols2 | Distros
+
+  val all : t list
+  val sexp_of_t : t -> Sexplib0.Sexp.t
+  val arg : t list Command.Arg_type.t
+end
+
 type justify = Center | Left | Right
 
 val sexp_of_justify : justify -> Sexplib0.Sexp.t
-
-type charset = All | Lowers | Numbers | Symbols1 | Symbols2 | Uppers
-
-val sexp_of_charset : charset -> Sexplib0.Sexp.t
-val equal_charset : charset -> charset -> bool
+val justify_arg : justify Command.Arg_type.t
 
 type t = {
-  charsets : charset list;
+  charsets : Charset.t list;
   cycles : int;
   flip_hi_bound : int;
   flip_lo_bound : int;
@@ -17,6 +21,4 @@ type t = {
   sleep : int;
 }
 
-val justify_arg : justify Command.Arg_type.t
-val charset_arg : charset list Command.Arg_type.t
 val run_split_flap : string list -> Universal.t -> t -> unit
