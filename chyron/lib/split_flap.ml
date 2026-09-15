@@ -1,12 +1,147 @@
 open Core
 
+let rec list_concat ~sep = function
+  | [] -> []
+  | [ s ] -> s
+  | h :: t -> list_concat ~sep t |> List.append (sep |> List.append h)
+
+module Charset = struct
+  type t = All | Lowers | Numbers | Symbols1 | Symbols2 | Uppers
+  [@@deriving equal, sexp]
+
+  let charset_arg =
+    Command.Arg_type.comma_separated ~strip_whitespace:true
+      (Command.Arg_type.create (function
+        | "all" | "All" -> All
+        | "lowers" | "Lowers" -> Lowers
+        | "uppers" | "Uppers" -> Uppers
+        | "numbers" | "Numbers" -> Numbers
+        | "symbols1" | "Symbols1" -> Symbols1
+        | "symbols2" | "Symbols2" -> Symbols2
+        | _ -> invalid_arg "invalid selection"))
+
+  let lowers =
+    [
+      "a";
+      "b";
+      "c";
+      "d";
+      "e";
+      "f";
+      "g";
+      "h";
+      "i";
+      "j";
+      "k";
+      "l";
+      "m";
+      "n";
+      "o";
+      "p";
+      "q";
+      "r";
+      "s";
+      "t";
+      "u";
+      "v";
+      "w";
+      "x";
+      "y";
+      "z";
+      " ";
+    ]
+
+  let uppers =
+    [
+      "A";
+      "B";
+      "C";
+      "D";
+      "E";
+      "F";
+      "G";
+      "H";
+      "I";
+      "J";
+      "K";
+      "L";
+      "M";
+      "N";
+      "O";
+      "P";
+      "Q";
+      "R";
+      "S";
+      "T";
+      "U";
+      "V";
+      "W";
+      "X";
+      "Y";
+      "Z";
+      " ";
+    ]
+
+  let numbers = [ "0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9"; " " ]
+  let symbols1 = [ "!"; "@"; "#"; "$"; "%"; "^"; "&"; "*"; "("; ")"; " " ]
+
+  let symbols2 =
+    [
+      "`";
+      "~";
+      "-";
+      "_";
+      "=";
+      "+";
+      "[";
+      "]";
+      "{";
+      "}";
+      "\\";
+      "|";
+      ";";
+      ":";
+      "'";
+      "\"";
+      ",";
+      "<";
+      ".";
+      ">";
+      "/";
+      "?";
+      " ";
+    ]
+
+  let rec dedup_charsets = function
+    | [] -> []
+    | h :: t ->
+        h :: dedup_charsets (List.filter t ~f:(fun x -> not (equal h x)))
+
+  let letters charsets =
+    let rec loop acc = function
+      | [] -> List.rev acc |> list_concat ~sep:[]
+      | h :: t ->
+          let lt =
+            match h with
+            | All -> []
+            | Lowers -> lowers
+            | Uppers -> uppers
+            | Numbers -> numbers
+            | Symbols1 -> symbols1
+            | Symbols2 -> symbols2
+          in
+          loop (lt :: acc) t
+    in
+    loop []
+      (if List.mem charsets All ~equal:(fun x y -> equal x y) then
+         [ Lowers; Uppers; Numbers; Symbols1; Symbols2 ]
+       else dedup_charsets charsets)
+end
+
 type justify = Center | Left | Right [@@deriving sexp]
 
-type charset = All | Lowers | Numbers | Symbols1 | Symbols2 | Uppers
-[@@deriving equal, sexp]
-
 type t = {
-  charsets : charset list;
+  charsets : Charset.t list;
   cycles : int;
   flip_hi_bound : int;
   flip_lo_bound : int;
@@ -20,109 +155,6 @@ let justify_arg =
     ~case_sensitive:false ~list_values_in_help:false
     [ ("center", Center); ("left", Left); ("right", Right) ]
 
-let charset_arg =
-  Command.Arg_type.comma_separated ~strip_whitespace:true
-    (Command.Arg_type.create (function
-      | "all" | "All" -> All
-      | "lowers" | "Lowers" -> Lowers
-      | "uppers" | "Uppers" -> Uppers
-      | "numbers" | "Numbers" -> Numbers
-      | "symbols1" | "Symbols1" -> Symbols1
-      | "symbols2" | "Symbols2" -> Symbols2
-      | _ -> invalid_arg "invalid selection"))
-
-let lowers =
-  [
-    "a";
-    "b";
-    "c";
-    "d";
-    "e";
-    "f";
-    "g";
-    "h";
-    "i";
-    "j";
-    "k";
-    "l";
-    "m";
-    "n";
-    "o";
-    "p";
-    "q";
-    "r";
-    "s";
-    "t";
-    "u";
-    "v";
-    "w";
-    "x";
-    "y";
-    "z";
-    " ";
-  ]
-
-let uppers =
-  [
-    "A";
-    "B";
-    "C";
-    "D";
-    "E";
-    "F";
-    "G";
-    "H";
-    "I";
-    "J";
-    "K";
-    "L";
-    "M";
-    "N";
-    "O";
-    "P";
-    "Q";
-    "R";
-    "S";
-    "T";
-    "U";
-    "V";
-    "W";
-    "X";
-    "Y";
-    "Z";
-    " ";
-  ]
-
-let numbers = [ "0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9"; " " ]
-let symbols1 = [ "!"; "@"; "#"; "$"; "%"; "^"; "&"; "*"; "("; ")"; " " ]
-
-let symbols2 =
-  [
-    "`";
-    "~";
-    "-";
-    "_";
-    "=";
-    "+";
-    "[";
-    "]";
-    "{";
-    "}";
-    "\\";
-    "|";
-    ";";
-    ":";
-    "'";
-    "\"";
-    ",";
-    "<";
-    ".";
-    ">";
-    "/";
-    "?";
-    " ";
-  ]
-
 let run_split_flap text Universal.{ prefix; suffix; terminator; width }
     {
       charsets;
@@ -133,11 +165,6 @@ let run_split_flap text Universal.{ prefix; suffix; terminator; width }
       justify;
       sleep;
     } =
-  let rec list_concat ~sep = function
-    | [] -> []
-    | [ s ] -> s
-    | h :: t -> list_concat ~sep t |> List.append (sep |> List.append h)
-  in
   let breakdown txt =
     let ltt =
       List.fold txt ~init:[] ~f:(fun acc x ->
@@ -194,34 +221,7 @@ let run_split_flap text Universal.{ prefix; suffix; terminator; width }
               [ List.init r ~f:intspace; x; List.init (diff - r) ~f:intspace ])
   in
 
-  let rec dedup_charsets = function
-    | [] -> []
-    | h :: t ->
-        h
-        :: dedup_charsets (List.filter t ~f:(fun x -> not (equal_charset h x)))
-  in
-
-  let letters =
-    let rec loop acc = function
-      | [] -> List.rev acc |> list_concat ~sep:[]
-      | h :: t ->
-          let lt =
-            match h with
-            | All -> []
-            | Lowers -> lowers
-            | Uppers -> uppers
-            | Numbers -> numbers
-            | Symbols1 -> symbols1
-            | Symbols2 -> symbols2
-          in
-          loop (lt :: acc) t
-    in
-    loop []
-      (if List.mem charsets All ~equal:(fun x y -> equal_charset x y) then
-         [ Lowers; Uppers; Numbers; Symbols1; Symbols2 ]
-       else dedup_charsets charsets)
-  in
-
+  let letters = Charset.letters charsets in
   print_endline @@ List.to_string ~f:Fn.id letters;
 
   let finaltex = text |> breakdown |> buildup |> pad in

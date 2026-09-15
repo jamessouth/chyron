@@ -21,7 +21,7 @@ let uflags =
   and width =
     flag_optional_with_default_doc "--width" ~aliases:[ "-w" ] int
       (fun x -> Int.sexp_of_t x)
-      ~default:15 ~doc:"int display width of TEXT, exclusive of {pre,suf}fix\n"
+      ~default:17 ~doc:"int display width of TEXT, exclusive of {pre,suf}fix\n"
   in
   if width < 2 then invalid_arg "width less than 2";
   { prefix; suffix; terminator; width }
@@ -43,7 +43,7 @@ let bflags =
   and sleep =
     flag_optional_with_default_doc "--sleep" ~aliases:[ "-s" ] int
       (fun x -> Int.sexp_of_t x)
-      ~default:300 ~doc:"int sleep in ms per step of TEXT\n"
+      ~default:307 ~doc:"int sleep in ms per step of TEXT\n"
   and step =
     flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.Step.arg
       Sb.Step.sexp_of_t ~default:Sb.Step.Char
@@ -83,7 +83,7 @@ let scflags =
   and sleep =
     flag_optional_with_default_doc "--sleep" ~aliases:[ "-s" ] int
       (fun x -> Int.sexp_of_t x)
-      ~default:300 ~doc:"int sleep in ms per scroll of TEXT\n"
+      ~default:311 ~doc:"int sleep in ms per scroll of TEXT\n"
   and step =
     flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.Step.arg
       Sb.Step.sexp_of_t ~default:Sb.Step.Char
@@ -112,15 +112,15 @@ let sfflags =
   and flip_hi_bound =
     flag_optional_with_default_doc "--flip-hi-bound" ~aliases:[ "-h" ] int
       (fun x -> Int.sexp_of_t x)
-      ~default:50 ~doc:"int char flips high bound per character position\n"
+      ~default:61 ~doc:"int char flips high bound per character position\n"
   and flip_lo_bound =
     flag_optional_with_default_doc "--flip-lo-bound" ~aliases:[ "-l" ] int
       (fun x -> Int.sexp_of_t x)
-      ~default:20 ~doc:"int char flips low bound per character position\n"
+      ~default:13 ~doc:"int char flips low bound per character position\n"
   and flip_sleep =
     flag_optional_with_default_doc "--flip-sleep" ~aliases:[ "-f" ] int
       (fun x -> Int.sexp_of_t x)
-      ~default:60 ~doc:"int sleep in ms per char flip\n"
+      ~default:53 ~doc:"int sleep in ms per char flip\n"
   and justify =
     flag_optional_with_default_doc "--justify" ~aliases:[ "-j" ] justify_arg
       sexp_of_justify ~default:Center
@@ -128,7 +128,7 @@ let sfflags =
   and sleep =
     flag_optional_with_default_doc "--sleep" ~aliases:[ "-s" ] int
       (fun x -> Int.sexp_of_t x)
-      ~default:1500 ~doc:"int sleep in ms per line after char flips complete\n"
+      ~default:1499 ~doc:"int sleep in ms per line after char flips complete\n"
   in
   if cycles < 1 then invalid_arg "cycles less than 1";
   if flip_hi_bound < 2 then invalid_arg "flip_hi_bound less than 2";
