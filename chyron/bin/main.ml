@@ -16,8 +16,8 @@ let uflags =
       ~default:"" ~doc:"string suffix TEXT at right of display\n"
   and terminator =
     flag_optional_with_default_doc "--terminator" ~aliases:[ "-t" ]
-      terminator_arg sexp_of_terminator ~default:Newline
-      ~doc:"string print TEXT with newline, return, or space\n"
+      terminator_arg Terminator.sexp_of_t ~default:Terminator.LF
+      ~doc:"string terminating character when printing TEXT\n"
   and width =
     flag_optional_with_default_doc "--width" ~aliases:[ "-w" ] int
       (fun x -> Int.sexp_of_t x)

@@ -15,19 +15,21 @@ module Externs = struct
   external unsafe_flush : Out_channel.t -> unit = "caml_ml_flush" [@@noalloc]
 end
 
-type terminator = Newline | Return | Space [@@deriving sexp]
+module Terminator = struct
+  type t = LF | CR | Space [@@deriving enumerate, sexp]
+end
+
+let terminator_arg =
+  Command.Arg_type.enumerated_sexpable ~accept_unique_prefixes:true
+    ~case_sensitive:false ~list_values_in_help:true
+    (module Terminator : Command.Enumerable_sexpable with type t = Terminator.t)
 
 type t = {
   prefix : string;
   suffix : string;
-  terminator : terminator;
+  terminator : Terminator.t;
   width : int;
 }
-
-let terminator_arg =
-  Command.Arg_type.of_alist_exn ~accept_unique_prefixes:true
-    ~case_sensitive:false ~list_values_in_help:false
-    [ ("newline", Newline); ("return", Return); ("space", Space) ]
 
 let printandterm { prefix; suffix; terminator; _ } =
   (* setting these chars here instead of as constructor payloads because of the way they make the help text look*)
@@ -38,14 +40,16 @@ let printandterm { prefix; suffix; terminator; _ } =
     Externs.unsafe_output_bytes stdout ft pos wid;
     Externs.unsafe_output_bytes stdout sfix 0 (Bytes.length sfix);
     Externs.unsafe_output_char stdout
-      (match terminator with Newline -> '\n' | Return -> '\r' | Space -> ' ');
+      (let open Terminator in
+       match terminator with LF -> '\n' | CR -> '\r' | Space -> ' ');
     Externs.unsafe_flush stdout
   in
   let term =
    fun () ->
+    let open Terminator in
     match terminator with
-    | Newline -> ()
-    | Return | Space ->
+    | LF -> ()
+    | CR | Space ->
         Externs.unsafe_output_char stdout '\n';
         Externs.unsafe_flush stdout
   in

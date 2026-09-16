@@ -13,17 +13,20 @@ module Externs : sig
   external unsafe_flush : out_channel -> unit = "caml_ml_flush" [@@noalloc]
 end
 
-type terminator = Newline | Return | Space
+module Terminator : sig
+  type t = LF | CR | Space
 
-val sexp_of_terminator : terminator -> Sexplib0.Sexp.t
+  val sexp_of_t : t -> Sexplib0.Sexp.t
+end
+
+val terminator_arg : Terminator.t Command.Arg_type.t
 
 type t = {
   prefix : string;
   suffix : string;
-  terminator : terminator;
+  terminator : Terminator.t;
   width : int;
 }
 
-val terminator_arg : terminator Command.Arg_type.t
 val printandterm : t -> (bytes -> int -> int -> unit) * (unit -> unit)
 val uc_charlist : string -> string list
