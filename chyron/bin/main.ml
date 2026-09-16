@@ -98,12 +98,12 @@ let scflags =
 let sfflags =
   let open Split_flap in
   let%map_open.Command charsets =
-    flag_optional_with_default_doc "--charsets" ~aliases:[ "-a" ] Charset.arg
+    flag_optional_with_default_doc "--charsets" ~aliases:[ "-a" ] charset_arg
       (fun x -> List.sexp_of_t Charset.sexp_of_t x)
       ~default:Charset.all
       ~doc:
-        "string characters to flip through. pass a comma- separated list \
-         (either quoted or without spaces)\n"
+        "string characters to flip through. pass a comma- separated list, \
+         either quoted or without spaces\n"
   and cycles =
     flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] int
       (fun x -> Int.sexp_of_t x)
@@ -122,8 +122,8 @@ let sfflags =
       ~default:53 ~doc:"int sleep in ms per char flip\n"
   and justify =
     flag_optional_with_default_doc "--justify" ~aliases:[ "-j" ] justify_arg
-      sexp_of_justify ~default:Center
-      ~doc:"string align TEXT to left, right, or center\n"
+      Justify.sexp_of_t ~default:Justify.Center
+      ~doc:"string where to align TEXT\n"
   and sleep =
     flag_optional_with_default_doc "--sleep" ~aliases:[ "-s" ] int
       (fun x -> Int.sexp_of_t x)
@@ -180,10 +180,11 @@ let split_flap =
     ~readme:(fun () ->
       "Break TEXT into lines and show --cycles times for --sleep ms per line. \
        Each\n\
-       character flips between --flip-lo-bound and --flip-hi-bound times at a \
-       rate\n\
-       of --flip-sleep ms per flip. Each line is --justify aligned and prints\n\
-       --width characters, plus any --prefix and --suffix, plus --terminator.")
+       character flips through the members of --charsets between --flip-lo-bound\n\
+       and --flip-hi-bound times at a rate of --flip-sleep ms per flip. Each \
+       line\n\
+       is --justify aligned and prints --width characters, plus any --prefix and\n\
+       --suffix, plus --terminator.")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and uflags

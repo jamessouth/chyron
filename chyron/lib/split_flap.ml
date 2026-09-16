@@ -9,10 +9,6 @@ module Charset = struct
   type t = Lowers | Uppers | Numbers | Symbols1 | Symbols2 | Distros
   [@@deriving enumerate, sexp]
 
-  let arg =
-    Command.Arg_type.comma_separated ~strip_whitespace:true
-      (Command.Arg_type.create (fun x -> t_of_sexp (sexp_of_string x)))
-
   let lowers =
     [
       "a";
@@ -165,12 +161,20 @@ module Charset = struct
     loop [] charsets
 end
 
-type justify = Center | Left | Right [@@deriving sexp]
+module Justify = struct
+  type t = Center | Left | Right [@@deriving enumerate, sexp]
+end
+
+let charset_arg =
+  Command.Arg_type.comma_separated ~strip_whitespace:true
+    (Command.Arg_type.enumerated_sexpable ~accept_unique_prefixes:true
+       ~case_sensitive:false ~list_values_in_help:false
+       (module Charset : Command.Enumerable_sexpable with type t = Charset.t))
 
 let justify_arg =
-  Command.Arg_type.of_alist_exn ~accept_unique_prefixes:true
-    ~case_sensitive:false ~list_values_in_help:false
-    [ ("center", Center); ("left", Left); ("right", Right) ]
+  Command.Arg_type.enumerated_sexpable ~accept_unique_prefixes:true
+    ~case_sensitive:false ~list_values_in_help:true
+    (module Justify : Command.Enumerable_sexpable with type t = Justify.t)
 
 type t = {
   charsets : Charset.t list;
@@ -178,7 +182,7 @@ type t = {
   flip_hi_bound : int;
   flip_lo_bound : int;
   flip_sleep : int;
-  justify : justify;
+  justify : Justify.t;
   sleep : int;
 }
 
@@ -224,6 +228,7 @@ let buildup wid txt =
 
 let pad wid justify txt =
   List.map txt ~f:(fun x ->
+      let open Justify in
       let diff = wid - List.length x in
       let intspace _ = " " in
       match (justify, diff = 0) with

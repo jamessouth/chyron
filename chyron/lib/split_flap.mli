@@ -3,13 +3,16 @@ module Charset : sig
 
   val all : t list
   val sexp_of_t : t -> Sexplib0.Sexp.t
-  val arg : t list Command.Arg_type.t
 end
 
-type justify = Center | Left | Right
+module Justify : sig
+  type t = Center | Left | Right
 
-val sexp_of_justify : justify -> Sexplib0.Sexp.t
-val justify_arg : justify Command.Arg_type.t
+  val sexp_of_t : t -> Sexplib0.Sexp.t
+end
+
+val charset_arg : Charset.t list Command.Arg_type.t
+val justify_arg : Justify.t Command.Arg_type.t
 
 type t = {
   charsets : Charset.t list;
@@ -17,7 +20,7 @@ type t = {
   flip_hi_bound : int;
   flip_lo_bound : int;
   flip_sleep : int;
-  justify : justify;
+  justify : Justify.t;
   sleep : int;
 }
 
