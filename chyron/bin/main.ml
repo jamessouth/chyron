@@ -108,14 +108,6 @@ let univ_sf_flags =
     flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] int
       (fun x -> Int.sexp_of_t x)
       ~default:cycmin ~doc:"int number of cycles through the lines of TEXT\n"
-  and flip_hi_bound =
-    flag_optional_with_default_doc "--flip-hi-bound" ~aliases:[ "-h" ] int
-      (fun x -> Int.sexp_of_t x)
-      ~default:61 ~doc:"int char flips high bound per character position\n"
-  and flip_lo_bound =
-    flag_optional_with_default_doc "--flip-lo-bound" ~aliases:[ "-l" ] int
-      (fun x -> Int.sexp_of_t x)
-      ~default:13 ~doc:"int char flips low bound per character position\n"
   and flip_sleep =
     flag_optional_with_default_doc "--flip-sleep" ~aliases:[ "-f" ] int
       (fun x -> Int.sexp_of_t x)
@@ -130,56 +122,37 @@ let univ_sf_flags =
       ~default:1499 ~doc:"int sleep in ms per line after char flips complete\n"
   in
   if cycles < 1 then invalid_arg "cycles less than 1";
+  if flip_sleep < 1 then invalid_arg "flip_sleep less than 1";
+  if sleep < 1 then invalid_arg "sleep less than 1";
+  { charsets; cycles; flip_sleep; justify; sleep }
+
+let random_sf_flags =
+  let open Split_flap in
+  let%map_open.Command flip_hi_bound =
+    flag_optional_with_default_doc "--flip-hi-bound" ~aliases:[ "-h" ] int
+      (fun x -> Int.sexp_of_t x)
+      ~default:61 ~doc:"int char flips high bound per character position\n"
+  and flip_lo_bound =
+    flag_optional_with_default_doc "--flip-lo-bound" ~aliases:[ "-l" ] int
+      (fun x -> Int.sexp_of_t x)
+      ~default:13 ~doc:"int char flips low bound per character position\n"
+  in
   if flip_hi_bound < 2 then invalid_arg "flip_hi_bound less than 2";
   if flip_lo_bound < 0 then invalid_arg "flip_lo_bound less than 0";
   if flip_hi_bound < flip_lo_bound then
     invalid_arg "flip_hi_bound is less than flip_lo_bound";
-  if flip_sleep < 1 then invalid_arg "flip_sleep less than 1";
-  if sleep < 1 then invalid_arg "sleep less than 1";
-  { charsets; cycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sleep }
+  Rando.{ flip_hi_bound; flip_lo_bound }
 
 let alpha_sf_flags =
   let open Split_flap in
-  let%map_open.Command charsets =
-    flag_optional_with_default_doc "--charsets" ~aliases:[ "-a" ] charset_arg
-      (fun x -> List.sexp_of_t Charset.sexp_of_t x)
-      ~default:Charset.all
-      ~doc:
-        "string characters to flip through. pass a comma- separated list, \
-         either quoted or without spaces\n"
-  and cycles =
-    flag_optional_with_default_doc "--cycles" ~aliases:[ "-c" ] int
+  let%map_open.Command multiple =
+    flag_optional_with_default_doc "--multiple" ~aliases:[ "-m" ] int
       (fun x -> Int.sexp_of_t x)
-      ~default:cycmin ~doc:"int number of cycles through the lines of TEXT\n"
-  and flip_hi_bound =
-    flag_optional_with_default_doc "--flip-hi-bound" ~aliases:[ "-h" ] int
-      (fun x -> Int.sexp_of_t x)
-      ~default:61 ~doc:"int char flips high bound per character position\n"
-  and flip_lo_bound =
-    flag_optional_with_default_doc "--flip-lo-bound" ~aliases:[ "-l" ] int
-      (fun x -> Int.sexp_of_t x)
-      ~default:13 ~doc:"int char flips low bound per character position\n"
-  and flip_sleep =
-    flag_optional_with_default_doc "--flip-sleep" ~aliases:[ "-f" ] int
-      (fun x -> Int.sexp_of_t x)
-      ~default:53 ~doc:"int sleep in ms per char flip\n"
-  and justify =
-    flag_optional_with_default_doc "--justify" ~aliases:[ "-j" ] justify_arg
-      Justify.sexp_of_t ~default:Justify.Center
-      ~doc:"string where to align TEXT\n"
-  and sleep =
-    flag_optional_with_default_doc "--sleep" ~aliases:[ "-s" ] int
-      (fun x -> Int.sexp_of_t x)
-      ~default:1499 ~doc:"int sleep in ms per line after char flips complete\n"
+      ~default:1 ~doc:"int times to flip through characters\n"
   in
-  if cycles < 1 then invalid_arg "cycles less than 1";
-  if flip_hi_bound < 2 then invalid_arg "flip_hi_bound less than 2";
-  if flip_lo_bound < 0 then invalid_arg "flip_lo_bound less than 0";
-  if flip_hi_bound < flip_lo_bound then
-    invalid_arg "flip_hi_bound is less than flip_lo_bound";
-  if flip_sleep < 1 then invalid_arg "flip_sleep less than 1";
-  if sleep < 1 then invalid_arg "sleep less than 1";
-  { charsets; cycles; flip_hi_bound; flip_lo_bound; flip_sleep; justify; sleep }
+
+  if multiple < 1 then invalid_arg "multiple less than 1";
+  Alpha.{ multiple }
 
 let bounce =
   Command.basic ~summary:"Bounce TEXT left and right."
@@ -218,8 +191,8 @@ let scroll =
      and scroll_flags in
      fun () -> Scroll.run_scroll text univ_flags scroll_flags)
 
-let split_flap =
-  Command.basic ~summary:"Show TEXT as a split-flap display."
+let split_flap_random =
+  Command.basic ~summary:"Show TEXT random as a split-flap display."
     ~readme:(fun () ->
       "Break TEXT into lines and show each --cycles times for --sleep ms per \
        line.\n\
@@ -232,14 +205,37 @@ let split_flap =
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and univ_flags
-     and sfflags in
-     fun () -> Split_flap.run_split_flap text univ_flags sfflags)
+     and univ_sf_flags
+     and random_sf_flags in
+     fun () ->
+       Split_flap.run_split_flap_random text univ_flags univ_sf_flags
+         random_sf_flags)
+
+let split_flap_alpha =
+  Command.basic ~summary:"Show TEXT alpha as a split-flap display."
+    ~readme:(fun () ->
+      "Break TEXT into lines and show each --cycles times for --sleep ms per \
+       line.\n\
+       Each character flips through the members of --charsets between \
+       --flip-lo-bound\n\
+       and --flip-hi-bound times at a rate of --flip-sleep ms per flip. Each \
+       line\n\
+       is --justify aligned and prints --width characters, plus any --prefix and\n\
+       --suffix, plus --terminator.")
+    (let%map_open.Command text =
+       anon (non_empty_sequence_as_list ("text" %: string))
+     and univ_flags
+     and univ_sf_flags
+     and alpha_sf_flags in
+     fun () ->
+       Split_flap.run_split_flap_alpha text univ_flags univ_sf_flags
+         alpha_sf_flags)
 
 let sfgroup =
   Command.group ~summary:"Split-flap TEXT with alphabetic or random flipping"
-    [ ("alpha", bounce); ("random", split_flap) ]
+    [ ("alpha", split_flap_alpha); ("random", split_flap_random) ]
 
 let () =
   Command_unix.run ~version:"1.0" ~build_info:"tbd"
     (Command.group ~summary:"Bounce, scroll, or split-flap TEXT"
-       [ ("bounce", bounce); ("scroll", scroll); ("split-flap", split_flap) ])
+       [ ("bounce", bounce); ("scroll", scroll); ("split-flap", sfgroup) ])

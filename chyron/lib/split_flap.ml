@@ -169,7 +169,7 @@ module Alpha = struct
   type t = { multiple : int }
 end
 
-module Random = struct
+module Rando = struct
   type t = { flip_hi_bound : int; flip_lo_bound : int }
 end
 
@@ -246,16 +246,9 @@ let pad wid justify txt =
           list_concat ~sep:[]
             [ List.init r ~f:intspace; x; List.init (diff - r) ~f:intspace ])
 
-let run_split_flap text Universal.{ prefix; suffix; terminator; width }
-    {
-      charsets;
-      cycles;
-      flip_hi_bound;
-      flip_lo_bound;
-      flip_sleep;
-      justify;
-      sleep;
-    } =
+let run_split_flap_random text Universal.{ prefix; suffix; terminator; width }
+    { charsets; cycles; flip_sleep; justify; sleep }
+    Rando.{ flip_hi_bound; flip_lo_bound } =
   let finaltex =
     text |> breakdown width |> buildup width |> pad width justify
   in
@@ -301,6 +294,61 @@ let run_split_flap text Universal.{ prefix; suffix; terminator; width }
         |> run_workers
              ~letters:(Array.unsafe_get wordarray idx)
              ~flips:(succ flip_hi_bound);
+        Universal.Externs.caml_clock_nanosleep sleep;
+        let nidx = if idx = pred wl_len then 0 else succ idx in
+        (loop [@tailcall]) (pred ticks) nidx
+      end
+    in
+    loop (wl_len * cycles) 0
+  in
+  ();
+  loopandprint finaltex
+
+let run_split_flap_alpha text Universal.{ prefix; suffix; terminator; width }
+    { charsets; cycles; flip_sleep; justify; sleep } Alpha.{ multiple } =
+  let finaltex =
+    text |> breakdown width |> buildup width |> pad width justify
+  in
+  let letters = Charset.letters charsets in
+  print_endline @@ List.to_string ~f:Fn.id letters;
+  let letters_arr = Array.of_list letters in
+  let len_letters = Array.length letters_arr in
+  let input_concat = String.concat text in
+  let len_input_concat = String.length input_concat in
+  let excess_bytes =
+    len_input_concat - List.length (Universal.uc_charlist input_concat)
+  in
+  let buffer = Bytes.create ((width lsl 2) + excess_bytes) in
+  let print, term =
+    Universal.printandterm Universal.{ prefix; suffix; terminator; width }
+  in
+  print_endline @@ string_of_int multiple;
+  let rec run_workers counts ~letters ~flips =
+    if flips <= 0 then ()
+    else begin
+      let line =
+        List.map2_exn counts letters ~f:(fun c l ->
+            if c < 1 then l
+            else Random.int len_letters |> Array.unsafe_get letters_arr)
+        |> String.concat ~sep:""
+      in
+      let llen = String.length line in
+      Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer ~dst_pos:0
+        ~len:llen;
+      print buffer 0 llen;
+      Universal.Externs.caml_clock_nanosleep flip_sleep;
+      (run_workers [@tailcall]) (List.map counts ~f:pred) ~letters
+        ~flips:(pred flips)
+    end
+  in
+  let loopandprint wordlist =
+    let wl_len = List.length wordlist in
+    let wordarray = Array.of_list wordlist in
+    let rec loop ticks idx =
+      if ticks <= 0 then term ()
+      else begin
+        List.init width ~f:(fun _ -> Random.int_incl 1 2)
+        |> run_workers ~letters:(Array.unsafe_get wordarray idx) ~flips:(succ 3);
         Universal.Externs.caml_clock_nanosleep sleep;
         let nidx = if idx = pred wl_len then 0 else succ idx in
         (loop [@tailcall]) (pred ticks) nidx
