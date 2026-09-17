@@ -165,13 +165,8 @@ module Justify = struct
   type t = Center | Left | Right [@@deriving enumerate, sexp]
 end
 
-module Alpha = struct
-  type t = { multiple : int }
-end
-
-module Rando = struct
-  type t = { flip_hi_bound : int; flip_lo_bound : int }
-end
+type alpha = { multiple : int }
+type rando = { flip_hi_bound : int; flip_lo_bound : int }
 
 let charset_arg =
   Command.Arg_type.comma_separated ~strip_whitespace:true
@@ -248,7 +243,7 @@ let pad wid justify txt =
 
 let run_split_flap_random text Universal.{ prefix; suffix; terminator; width }
     { charsets; cycles; flip_sleep; justify; sleep }
-    Rando.{ flip_hi_bound; flip_lo_bound } =
+    { flip_hi_bound; flip_lo_bound } =
   let finaltex =
     text |> breakdown width |> buildup width |> pad width justify
   in
@@ -305,7 +300,7 @@ let run_split_flap_random text Universal.{ prefix; suffix; terminator; width }
   loopandprint finaltex
 
 let run_split_flap_alpha text Universal.{ prefix; suffix; terminator; width }
-    { charsets; cycles; flip_sleep; justify; sleep } Alpha.{ multiple } =
+    { charsets; cycles; flip_sleep; justify; sleep } { multiple } =
   let finaltex =
     text |> breakdown width |> buildup width |> pad width justify
   in

@@ -126,7 +126,7 @@ let univ_sf_flags =
   if sleep < 1 then invalid_arg "sleep less than 1";
   { charsets; cycles; flip_sleep; justify; sleep }
 
-let random_sf_flags =
+let rando_sf_flags =
   let open Split_flap in
   let%map_open.Command flip_hi_bound =
     flag_optional_with_default_doc "--flip-hi-bound" ~aliases:[ "-h" ] int
@@ -141,21 +141,20 @@ let random_sf_flags =
   if flip_lo_bound < 0 then invalid_arg "flip_lo_bound less than 0";
   if flip_hi_bound < flip_lo_bound then
     invalid_arg "flip_hi_bound is less than flip_lo_bound";
-  Rando.{ flip_hi_bound; flip_lo_bound }
+  { flip_hi_bound; flip_lo_bound }
 
 let alpha_sf_flags =
   let open Split_flap in
   let%map_open.Command multiple =
     flag_optional_with_default_doc "--multiple" ~aliases:[ "-m" ] int
       (fun x -> Int.sexp_of_t x)
-      ~default:1 ~doc:"int times to flip through characters\n"
+      ~default:1 ~doc:"int times to flip through the characters\n"
   in
-
   if multiple < 1 then invalid_arg "multiple less than 1";
-  Alpha.{ multiple }
+  { multiple }
 
 let bounce =
-  Command.basic ~summary:"Bounce TEXT left and right."
+  Command.basic ~summary:"bounce TEXT left and right"
     ~readme:(fun () ->
       "Bounce TEXT back and forth by --step every --sleep ms --cycles times. \
        If TEXT\n\
@@ -174,7 +173,7 @@ let bounce =
      fun () -> Bounce.run_bounce text univ_flags bounce_flags)
 
 let scroll =
-  Command.basic ~summary:"Scroll TEXT left or right."
+  Command.basic ~summary:"scroll TEXT left or right"
     ~readme:(fun () ->
       "Scroll TEXT by --step in --direction and --mode every --sleep ms \
        --cycles times.\n\
@@ -191,37 +190,38 @@ let scroll =
      and scroll_flags in
      fun () -> Scroll.run_scroll text univ_flags scroll_flags)
 
-let split_flap_random =
-  Command.basic ~summary:"Show TEXT random as a split-flap display."
+let split_flap_rando =
+  Command.basic ~summary:"flip through characters in random order"
     ~readme:(fun () ->
       "Break TEXT into lines and show each --cycles times for --sleep ms per \
        line.\n\
-       Each character flips through the members of --charsets between \
-       --flip-lo-bound\n\
-       and --flip-hi-bound times at a rate of --flip-sleep ms per flip. Each \
-       line\n\
-       is --justify aligned and prints --width characters, plus any --prefix and\n\
-       --suffix, plus --terminator.")
+       Each character in a line flips randomly through the members of --charsets\n\
+       between --flip-lo-bound and --flip-hi-bound times at a rate of \
+       --flip-sleep\n\
+       ms per flip. Each line is --justify aligned and prints --width \
+       characters, plus\n\
+       any --prefix and --suffix, plus --terminator.")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and univ_flags
      and univ_sf_flags
-     and random_sf_flags in
+     and rando_sf_flags in
      fun () ->
        Split_flap.run_split_flap_random text univ_flags univ_sf_flags
-         random_sf_flags)
+         rando_sf_flags)
 
 let split_flap_alpha =
-  Command.basic ~summary:"Show TEXT alpha as a split-flap display."
+  Command.basic ~summary:"flip through characters in alphabetical order"
     ~readme:(fun () ->
       "Break TEXT into lines and show each --cycles times for --sleep ms per \
        line.\n\
-       Each character flips through the members of --charsets between \
-       --flip-lo-bound\n\
-       and --flip-hi-bound times at a rate of --flip-sleep ms per flip. Each \
-       line\n\
-       is --justify aligned and prints --width characters, plus any --prefix and\n\
-       --suffix, plus --terminator.")
+       Each character in a line flips orderly through the members of \
+       --charsets at\n\
+       a rate of --flip-sleep ms per flip until the target character is reached.\n\
+       Set --multiple for additional flipping. Each line is --justify aligned \
+       and\n\
+       prints --width characters, plus any --prefix and --suffix, plus \
+       --terminator.")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and univ_flags
@@ -232,10 +232,10 @@ let split_flap_alpha =
          alpha_sf_flags)
 
 let sfgroup =
-  Command.group ~summary:"Split-flap TEXT with alphabetic or random flipping"
-    [ ("alpha", split_flap_alpha); ("random", split_flap_random) ]
+  Command.group ~summary:"alphabetic or random flipping"
+    [ ("alpha", split_flap_alpha); ("rando", split_flap_rando) ]
 
 let () =
   Command_unix.run ~version:"1.0" ~build_info:"tbd"
-    (Command.group ~summary:"Bounce, scroll, or split-flap TEXT"
+    (Command.group ~summary:"bounce, scroll, or split-flap TEXT"
        [ ("bounce", bounce); ("scroll", scroll); ("split-flap", sfgroup) ])
