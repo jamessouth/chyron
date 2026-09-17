@@ -45,9 +45,9 @@ let bflags =
       (fun x -> Int.sexp_of_t x)
       ~default:307 ~doc:"int sleep in ms per step of TEXT\n"
   and step =
-    flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.Step.arg
+    flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.step_arg
       Sb.Step.sexp_of_t ~default:Sb.Step.Char
-      ~doc:"string step TEXT by character or by word\n"
+      ~doc:"string length TEXT shifts each frame\n"
   in
   if cycles < 1 then invalid_arg "cycles less than 1";
   if rest < 0 then invalid_arg "rest less than 0";
@@ -85,7 +85,7 @@ let scflags =
       (fun x -> Int.sexp_of_t x)
       ~default:311 ~doc:"int sleep in ms per scroll of TEXT\n"
   and step =
-    flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.Step.arg
+    flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.step_arg
       Sb.Step.sexp_of_t ~default:Sb.Step.Char
       ~doc:"string scroll TEXT by character or by word\n"
   in

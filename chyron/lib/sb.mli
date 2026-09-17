@@ -2,9 +2,9 @@ module Step : sig
   type t = Char | Word
 
   val sexp_of_t : t -> Sexplib0.Sexp.t
-  val arg : t Command.Arg_type.t
 end
 
+val step_arg : Step.t Command.Arg_type.t
 val sbvals : string list -> bytes * int * int
 
 val sbfuncs :

@@ -1,13 +1,13 @@
 open Core
 
 module Step = struct
-  type t = Char | Word [@@deriving sexp]
-
-  let arg =
-    Command.Arg_type.of_alist_exn ~accept_unique_prefixes:true
-      ~case_sensitive:false ~list_values_in_help:false
-      [ ("char", Char); ("word", Word) ]
+  type t = Char | Word [@@deriving enumerate, sexp]
 end
+
+let step_arg =
+  Command.Arg_type.enumerated_sexpable ~accept_unique_prefixes:true
+    ~case_sensitive:false ~list_values_in_help:true
+    (module Step : Command.Enumerable_sexpable with type t = Step.t)
 
 let sbvals text =
   let joined_text = String.concat ~sep:" " text in
