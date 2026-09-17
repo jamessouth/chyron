@@ -47,7 +47,7 @@ let bflags =
   and step =
     flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.step_arg
       Sb.Step.sexp_of_t ~default:Sb.Step.Char
-      ~doc:"string length TEXT shifts each frame\n"
+      ~doc:"string length that TEXT shifts each frame\n"
   in
   if cycles < 1 then invalid_arg "cycles less than 1";
   if rest < 0 then invalid_arg "rest less than 0";
@@ -62,8 +62,8 @@ let scflags =
       ~default:cycmin ~doc:"int number of scroll cycles of TEXT\n"
   and direction =
     flag_optional_with_default_doc "--direction" ~aliases:[ "-d" ] direction_arg
-      sexp_of_direction ~default:Left
-      ~doc:"string scroll TEXT to left or right\n"
+      Direction.sexp_of_t ~default:Direction.Left
+      ~doc:"string direction to scroll TEXT\n"
   and endcap_char =
     flag_optional_with_default_doc "--endcap-char" ~aliases:[ "-e" ] char
       (fun x -> Char.sexp_of_t x)
@@ -74,7 +74,7 @@ let scflags =
       ~default:1 ~doc:"int minimum length of endcap\n"
   and mode =
     flag_optional_with_default_doc "--mode" ~aliases:[ "-m" ] mode_arg
-      sexp_of_mode ~default:Wrap
+      Mode.sexp_of_t ~default:Mode.Wrap
       ~doc:"string wrap TEXT around to other side or reset to start\n"
   and rest =
     flag_optional_with_default_doc "--rest" ~aliases:[ "-r" ] int
@@ -87,7 +87,7 @@ let scflags =
   and step =
     flag_optional_with_default_doc "--step" ~aliases:[ "-o" ] Sb.step_arg
       Sb.Step.sexp_of_t ~default:Sb.Step.Char
-      ~doc:"string scroll TEXT by character or by word\n"
+      ~doc:"string length that TEXT shifts each frame\n"
   in
   if cycles < 1 then invalid_arg "cycles less than 1";
   if endcap_len < 1 then invalid_arg "endcap_len less than 1";
@@ -160,8 +160,8 @@ let bounce =
 let scroll =
   Command.basic ~summary:"Scroll TEXT left or right."
     ~readme:(fun () ->
-      "Scroll TEXT by --step in --mode every --sleep ms --cycles times in \
-       --direction.\n\
+      "Scroll TEXT by --step in --direction and --mode every --sleep ms \
+       --cycles times.\n\
        An endcap string made of --endcap-char with length --endcap-len will be \
        added\n\
        between the end and beginning of TEXT. Each frame of TEXT prints --width\n\
@@ -178,9 +178,10 @@ let scroll =
 let split_flap =
   Command.basic ~summary:"Show TEXT as a split-flap display."
     ~readme:(fun () ->
-      "Break TEXT into lines and show --cycles times for --sleep ms per line. \
-       Each\n\
-       character flips through the members of --charsets between --flip-lo-bound\n\
+      "Break TEXT into lines and show each --cycles times for --sleep ms per \
+       line.\n\
+       Each character flips through the members of --charsets between \
+       --flip-lo-bound\n\
        and --flip-hi-bound times at a rate of --flip-sleep ms per flip. Each \
        line\n\
        is --justify aligned and prints --width characters, plus any --prefix and\n\

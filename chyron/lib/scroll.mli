@@ -1,22 +1,27 @@
-type direction = Left | Right
+module Direction : sig
+  type t = Left | Right
 
-val sexp_of_direction : direction -> Sexplib0.Sexp.t
+  val sexp_of_t : t -> Sexplib0.Sexp.t
+end
 
-type mode = Reset | Wrap
+module Mode : sig
+  type t = Reset | Wrap
 
-val sexp_of_mode : mode -> Sexplib0.Sexp.t
+  val sexp_of_t : t -> Sexplib0.Sexp.t
+end
+
+val direction_arg : Direction.t Command.Arg_type.t
+val mode_arg : Mode.t Command.Arg_type.t
 
 type t = {
   cycles : int;
-  direction : direction;
+  direction : Direction.t;
   endcap_char : char;
   endcap_len : int;
-  mode : mode;
+  mode : Mode.t;
   rest : int;
   sleep : int;
   step : Sb.Step.t;
 }
 
-val direction_arg : direction Command.Arg_type.t
-val mode_arg : mode Command.Arg_type.t
 val run_scroll : string list -> Universal.t -> t -> unit

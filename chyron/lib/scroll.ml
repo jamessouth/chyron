@@ -1,28 +1,33 @@
 open Core
 
-type direction = Left | Right [@@deriving sexp]
-type mode = Reset | Wrap [@@deriving sexp]
+module Direction = struct
+  type t = Left | Right [@@deriving enumerate, sexp]
+end
+
+module Mode = struct
+  type t = Reset | Wrap [@@deriving enumerate, sexp]
+end
+
+let direction_arg =
+  Command.Arg_type.enumerated_sexpable ~accept_unique_prefixes:true
+    ~case_sensitive:false ~list_values_in_help:true
+    (module Direction : Command.Enumerable_sexpable with type t = Direction.t)
+
+let mode_arg =
+  Command.Arg_type.enumerated_sexpable ~accept_unique_prefixes:true
+    ~case_sensitive:false ~list_values_in_help:true
+    (module Mode : Command.Enumerable_sexpable with type t = Mode.t)
 
 type t = {
   cycles : int;
-  direction : direction;
+  direction : Direction.t;
   endcap_char : char;
   endcap_len : int;
-  mode : mode;
+  mode : Mode.t;
   rest : int;
   sleep : int;
   step : Sb.Step.t;
 }
-
-let direction_arg =
-  Command.Arg_type.of_alist_exn ~accept_unique_prefixes:true
-    ~case_sensitive:false ~list_values_in_help:false
-    [ ("left", Left); ("right", Right) ]
-
-let mode_arg =
-  Command.Arg_type.of_alist_exn ~accept_unique_prefixes:true
-    ~case_sensitive:false ~list_values_in_help:false
-    [ ("reset", Reset); ("wrap", Wrap) ]
 
 let run_scroll text Universal.{ prefix; suffix; terminator; width }
     { cycles; direction; endcap_char; endcap_len; rest; mode; step; sleep } =
@@ -35,12 +40,14 @@ let run_scroll text Universal.{ prefix; suffix; terminator; width }
   let ecp = Bytes.make ecl endcap_char in
   let base = Stdlib.Bytes.cat (Stdlib.Bytes.cat ecp joined_bytes) ecp in
   let finaltext =
+    let open Direction in
     match direction with
     | Left -> Stdlib.Bytes.cat joined_bytes base
     | Right -> Stdlib.Bytes.cat base joined_bytes
   in
   let ltfunc pwlist pwlen =
     let tot = sleep + rest in
+    let open Mode in
     match mode with
     | Wrap ->
         List.mapi pwlist ~f:(fun i (p, w) ->
@@ -63,6 +70,8 @@ let run_scroll text Universal.{ prefix; suffix; terminator; width }
       cycles
   in
   begin
+    let open Direction in
+    let open Mode in
     let open Sb.Step in
     match
       (direction, step, mode, Ordering.of_int (compare visual_chars width))
