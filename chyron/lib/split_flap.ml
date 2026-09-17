@@ -165,6 +165,14 @@ module Justify = struct
   type t = Center | Left | Right [@@deriving enumerate, sexp]
 end
 
+module Alpha = struct
+  type t = { multiple : int }
+end
+
+module Random = struct
+  type t = { flip_hi_bound : int; flip_lo_bound : int }
+end
+
 let charset_arg =
   Command.Arg_type.comma_separated ~strip_whitespace:true
     (Command.Arg_type.enumerated_sexpable ~accept_unique_prefixes:true
@@ -179,8 +187,6 @@ let justify_arg =
 type t = {
   charsets : Charset.t list;
   cycles : int;
-  flip_hi_bound : int;
-  flip_lo_bound : int;
   flip_sleep : int;
   justify : Justify.t;
   sleep : int;
