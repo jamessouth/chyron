@@ -141,9 +141,10 @@ module Charset = struct
       "";
       "";
       "";
+      " ";
     ]
 
-  let letters charsets =
+  let chars charsets =
     let rec loop acc = function
       | [] -> List.rev acc |> list_concat ~sep:[]
       | h :: t ->
@@ -241,16 +242,23 @@ let pad wid justify txt =
           list_concat ~sep:[]
             [ List.init r ~f:intspace; x; List.init (diff - r) ~f:intspace ])
 
-let run_split_flap_random text Universal.{ prefix; suffix; terminator; width }
+
+
+let rec extendchars chars = function
+|[] -> chars
+|h::t -> if (List.exists chars ~f:(fun x -> String.(=) x h)) then extendchars chars t else extendchars (h::chars) t
+
+
+let run_split_flap_rando text Universal.{ prefix; suffix; terminator; width }
     { charsets; cycles; flip_sleep; justify; sleep }
     { flip_hi_bound; flip_lo_bound } =
   let finaltex =
     text |> breakdown width |> buildup width |> pad width justify
   in
-  let letters = Charset.letters charsets in
-  print_endline @@ List.to_string ~f:Fn.id letters;
-  let letters_arr = Array.of_list letters in
-  let len_letters = Array.length letters_arr in
+  let chars = Charset.chars charsets in
+  print_endline @@ List.to_string ~f:Fn.id chars;
+  let chars_arr = Array.of_list chars in
+  let len_chars = Array.length chars_arr in
   let input_concat = String.concat text in
   let len_input_concat = String.length input_concat in
   let excess_bytes =
@@ -266,7 +274,7 @@ let run_split_flap_random text Universal.{ prefix; suffix; terminator; width }
       let line =
         List.map2_exn counts letters ~f:(fun c l ->
             if c < 1 then l
-            else Random.int len_letters |> Array.unsafe_get letters_arr)
+            else Random.int len_chars |> Array.unsafe_get chars_arr)
         |> String.concat ~sep:""
       in
       let llen = String.length line in
@@ -304,10 +312,10 @@ let run_split_flap_alpha text Universal.{ prefix; suffix; terminator; width }
   let finaltex =
     text |> breakdown width |> buildup width |> pad width justify
   in
-  let letters = Charset.letters charsets in
-  print_endline @@ List.to_string ~f:Fn.id letters;
-  let letters_arr = Array.of_list letters in
-  let len_letters = Array.length letters_arr in
+  let chars = extendchars (Charset.chars charsets) (List.concat finaltex) in
+  print_endline @@ List.to_string ~f:Fn.id chars;
+  let chars_arr = Array.of_list chars in
+  let len_chars = Array.length chars_arr in
   let input_concat = String.concat text in
   let len_input_concat = String.length input_concat in
   let excess_bytes =
@@ -318,13 +326,14 @@ let run_split_flap_alpha text Universal.{ prefix; suffix; terminator; width }
     Universal.printandterm Universal.{ prefix; suffix; terminator; width }
   in
   print_endline @@ string_of_int multiple;
-  let rec run_workers counts ~letters ~flips =
-    if flips <= 0 then ()
+  let rec run_workers inds ~letters  =
+    (* if flips <= 0 then () *)
     else begin
       let line =
-        List.map2_exn counts letters ~f:(fun c l ->
-            if c < 1 then l
-            else Random.int len_letters |> Array.unsafe_get letters_arr)
+        List.map2_exn inds letters ~f:(fun i l ->
+            let lett = (Array.unsafe_get chars_arr i) in
+            if String.(=) l lett then l
+            else lett)
         |> String.concat ~sep:""
       in
       let llen = String.length line in
@@ -332,8 +341,7 @@ let run_split_flap_alpha text Universal.{ prefix; suffix; terminator; width }
         ~len:llen;
       print buffer 0 llen;
       Universal.Externs.caml_clock_nanosleep flip_sleep;
-      (run_workers [@tailcall]) (List.map counts ~f:pred) ~letters
-        ~flips:(pred flips)
+      (run_workers [@tailcall]) (List.map inds ~f:succ) ~letters
     end
   in
   let loopandprint wordlist =
@@ -342,8 +350,8 @@ let run_split_flap_alpha text Universal.{ prefix; suffix; terminator; width }
     let rec loop ticks idx =
       if ticks <= 0 then term ()
       else begin
-        List.init width ~f:(fun _ -> Random.int_incl 1 2)
-        |> run_workers ~letters:(Array.unsafe_get wordarray idx) ~flips:(succ 3);
+        List.init width ~f:(fun _ -> Random.int_incl 0 (pred len_chars))
+        |> run_workers ~letters:(Array.unsafe_get wordarray idx) 
         Universal.Externs.caml_clock_nanosleep sleep;
         let nidx = if idx = pred wl_len then 0 else succ idx in
         (loop [@tailcall]) (pred ticks) nidx

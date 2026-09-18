@@ -25,5 +25,5 @@ type t = {
   sleep : int;
 }
 
-val run_split_flap_random : string list -> Universal.t -> t -> rando -> unit
+val run_split_flap_rando : string list -> Universal.t -> t -> rando -> unit
 val run_split_flap_alpha : string list -> Universal.t -> t -> alpha -> unit
