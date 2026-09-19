@@ -24,7 +24,7 @@ module Justify : sig
 end
 
 module Direction : sig
-  type t = Ascending | Descending
+  type t = Down | Up
 
   val all : t list
   val t_of_sexp : Sexplib0.Sexp.t -> t

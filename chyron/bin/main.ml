@@ -130,8 +130,8 @@ let alpha_sf_flags =
   let open Split_flap in
   let%map_open.Command direction =
     flag_optional_with_default_doc "--direction" ~aliases:[ "-d" ] direction_arg
-      Direction.sexp_of_t ~default:Direction.Ascending
-      ~doc:"string direction the characters flip\n"
+      Direction.sexp_of_t ~default:Direction.Up
+      ~doc:"string direction to flip through --charsets\n"
   in
   { direction }
 

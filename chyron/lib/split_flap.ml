@@ -163,7 +163,7 @@ module Justify = struct
 end
 
 module Direction = struct
-  type t = Ascending | Descending [@@deriving enumerate, sexp]
+  type t = Down | Up [@@deriving enumerate, sexp]
 end
 
 type alpha = { direction : Direction.t }
@@ -349,8 +349,8 @@ let run_split_flap_alpha text Universal.{ prefix; suffix; terminator; width }
             else
               let open Direction in
               match direction with
-              | Ascending -> if i = pred len_chars then 0 else succ i
-              | Descending -> if i = 0 then pred len_chars else pred i)
+              | Up -> if i = pred len_chars then 0 else succ i
+              | Down -> if i = 0 then pred len_chars else pred i)
       in
       (run_workers [@tailcall]) ninds ~letters ~flips:(pred flips)
     end
