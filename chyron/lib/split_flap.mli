@@ -1,7 +1,7 @@
 val list_concat : sep:'a list -> 'a list list -> 'a list
 
 module Charset : sig
-  type t = Lowers | Uppers | Numbers | Symbols1 | Symbols2 | Distros
+  type t = Lowers | Uppers | Numbers | Symbols1 | Symbols2 | Distros | PLs
 
   val all : t list
   val t_of_sexp : Sexplib0.Sexp.t -> t
@@ -12,6 +12,7 @@ module Charset : sig
   val symbols1 : string list
   val symbols2 : string list
   val distros : string list
+  val pls : string list
   val chars : t list -> string list
 end
 

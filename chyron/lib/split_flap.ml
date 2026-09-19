@@ -6,7 +6,7 @@ let rec list_concat ~sep = function
   | h :: t -> list_concat ~sep t |> List.append (List.append h sep)
 
 module Charset = struct
-  type t = Lowers | Uppers | Numbers | Symbols1 | Symbols2 | Distros
+  type t = Lowers | Uppers | Numbers | Symbols1 | Symbols2 | Distros | PLs
   [@@deriving enumerate, sexp]
 
   let lowers =
@@ -140,6 +140,73 @@ module Charset = struct
       "";
     ]
 
+  let pls =
+    [
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+      "";
+    ]
+
   let chars charsets =
     let rec loop acc = function
       | [] -> List.rev acc |> list_concat ~sep:[]
@@ -152,6 +219,7 @@ module Charset = struct
             | Symbols1 -> symbols1
             | Symbols2 -> symbols2
             | Distros -> distros
+            | PLs -> pls
           in
           loop (lt :: acc) t
     in
