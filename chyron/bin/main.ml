@@ -128,13 +128,12 @@ let univ_sf_flags =
 
 let alpha_sf_flags =
   let open Split_flap in
-  let%map_open.Command multiple =
-    flag_optional_with_default_doc "--multiple" ~aliases:[ "-m" ] int
-      (fun x -> Int.sexp_of_t x)
-      ~default:1 ~doc:"int times to flip through the characters\n"
+  let%map_open.Command direction =
+    flag_optional_with_default_doc "--direction" ~aliases:[ "-d" ] direction_arg
+      Direction.sexp_of_t ~default:Direction.Ascending
+      ~doc:"string direction the characters flip\n"
   in
-  if multiple < 1 then invalid_arg "multiple less than 1";
-  { multiple }
+  { direction }
 
 let rando_sf_flags =
   let open Split_flap in
@@ -198,8 +197,7 @@ let split_flap_alpha =
        Each character in a line flips orderly through the members of \
        --charsets at\n\
        a rate of --flip-sleep ms per flip until the target character is reached.\n\
-       Set --multiple for additional flipping. Each line is --justify aligned \
-       and\n\
+       Set . Each line is --justify aligned and\n\
        prints --width characters, plus any --prefix and --suffix, plus \
        --terminator.")
     (let%map_open.Command text =
@@ -232,7 +230,7 @@ let split_flap_rando =
          rando_sf_flags)
 
 let sfgroup =
-  Command.group ~summary:"alphabetic or random flipping"
+  Command.group ~summary:"alphabetic or random character flipping"
     [ ("alpha", split_flap_alpha); ("rando", split_flap_rando) ]
 
 let () =

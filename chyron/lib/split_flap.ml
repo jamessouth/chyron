@@ -37,7 +37,6 @@ module Charset = struct
       "x";
       "y";
       "z";
-      " ";
     ]
 
   let uppers =
@@ -68,11 +67,10 @@ module Charset = struct
       "X";
       "Y";
       "Z";
-      " ";
     ]
 
-  let numbers = [ "0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9"; " " ]
-  let symbols1 = [ "!"; "@"; "#"; "$"; "%"; "^"; "&"; "*"; "("; ")"; " " ]
+  let numbers = [ "0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9" ]
+  let symbols1 = [ "!"; "@"; "#"; "$"; "%"; "^"; "&"; "*"; "("; ")" ]
 
   let symbols2 =
     [
@@ -98,7 +96,6 @@ module Charset = struct
       ">";
       "/";
       "?";
-      " ";
     ]
 
   let distros =
@@ -141,7 +138,6 @@ module Charset = struct
       "";
       "";
       "";
-      " ";
     ]
 
   let chars charsets =
@@ -166,7 +162,11 @@ module Justify = struct
   type t = Center | Left | Right [@@deriving enumerate, sexp]
 end
 
-type alpha = { multiple : int }
+module Direction = struct
+  type t = Ascending | Descending [@@deriving enumerate, sexp]
+end
+
+type alpha = { direction : Direction.t }
 type rando = { flip_hi_bound : int; flip_lo_bound : int }
 
 let charset_arg =
@@ -179,6 +179,11 @@ let justify_arg =
   Command.Arg_type.enumerated_sexpable ~accept_unique_prefixes:true
     ~case_sensitive:false ~list_values_in_help:true
     (module Justify : Command.Enumerable_sexpable with type t = Justify.t)
+
+let direction_arg =
+  Command.Arg_type.enumerated_sexpable ~accept_unique_prefixes:true
+    ~case_sensitive:false ~list_values_in_help:true
+    (module Direction : Command.Enumerable_sexpable with type t = Direction.t)
 
 type t = {
   charsets : Charset.t list;
@@ -242,12 +247,12 @@ let pad wid justify txt =
           list_concat ~sep:[]
             [ List.init r ~f:intspace; x; List.init (diff - r) ~f:intspace ])
 
-
-
 let rec extendchars chars = function
-|[] -> chars
-|h::t -> if (List.exists chars ~f:(fun x -> String.(=) x h)) then extendchars chars t else extendchars (h::chars) t
-
+  | [] -> chars
+  | h :: t ->
+      if List.exists chars ~f:(fun x -> String.( = ) x h) then
+        extendchars chars t
+      else extendchars (h :: chars) t
 
 let run_split_flap_rando text Universal.{ prefix; suffix; terminator; width }
     { charsets; cycles; flip_sleep; justify; sleep }
@@ -308,7 +313,7 @@ let run_split_flap_rando text Universal.{ prefix; suffix; terminator; width }
   loopandprint finaltex
 
 let run_split_flap_alpha text Universal.{ prefix; suffix; terminator; width }
-    { charsets; cycles; flip_sleep; justify; sleep } { multiple } =
+    { charsets; cycles; flip_sleep; justify; sleep } { direction } =
   let finaltex =
     text |> breakdown width |> buildup width |> pad width justify
   in
@@ -325,15 +330,12 @@ let run_split_flap_alpha text Universal.{ prefix; suffix; terminator; width }
   let print, term =
     Universal.printandterm Universal.{ prefix; suffix; terminator; width }
   in
-  print_endline @@ string_of_int multiple;
-  let rec run_workers inds ~letters  =
-    (* if flips <= 0 then () *)
+
+  let rec run_workers inds ~letters ~flips =
+    if flips <= 0 then inds
     else begin
       let line =
-        List.map2_exn inds letters ~f:(fun i l ->
-            let lett = (Array.unsafe_get chars_arr i) in
-            if String.(=) l lett then l
-            else lett)
+        List.map inds ~f:(fun i -> Array.unsafe_get chars_arr i)
         |> String.concat ~sep:""
       in
       let llen = String.length line in
@@ -341,23 +343,43 @@ let run_split_flap_alpha text Universal.{ prefix; suffix; terminator; width }
         ~len:llen;
       print buffer 0 llen;
       Universal.Externs.caml_clock_nanosleep flip_sleep;
-      (run_workers [@tailcall]) (List.map inds ~f:succ) ~letters
+      let ninds =
+        List.map2_exn inds letters ~f:(fun i l ->
+            if String.( = ) l (Array.unsafe_get chars_arr i) then i
+            else
+              let open Direction in
+              match direction with
+              | Ascending -> if i = pred len_chars then 0 else succ i
+              | Descending -> if i = 0 then pred len_chars else pred i)
+      in
+      (run_workers [@tailcall]) ninds ~letters ~flips:(pred flips)
     end
   in
   let loopandprint wordlist =
     let wl_len = List.length wordlist in
     let wordarray = Array.of_list wordlist in
-    let rec loop ticks idx =
-      if ticks <= 0 then term ()
+    let rec loop ticks rets idx =
+      if ticks <= 1 then term ()
       else begin
-        List.init width ~f:(fun _ -> Random.int_incl 0 (pred len_chars))
-        |> run_workers ~letters:(Array.unsafe_get wordarray idx) 
+        let nrets =
+          rets
+          |> run_workers
+               ~letters:(Array.unsafe_get wordarray idx)
+               ~flips:(succ len_chars)
+        in
         Universal.Externs.caml_clock_nanosleep sleep;
         let nidx = if idx = pred wl_len then 0 else succ idx in
-        (loop [@tailcall]) (pred ticks) nidx
+        (loop [@tailcall]) (pred ticks) nrets nidx
       end
     in
-    loop (wl_len * cycles) 0
+    let retofwrkr =
+      List.init width ~f:(fun _ -> Random.int_incl 0 (pred len_chars))
+      |> run_workers
+           ~letters:(Array.unsafe_get wordarray 0)
+           ~flips:(succ len_chars)
+    in
+    Universal.Externs.caml_clock_nanosleep sleep;
+    loop (wl_len * cycles) retofwrkr 1
   in
   ();
   loopandprint finaltex
