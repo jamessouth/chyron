@@ -1,7 +1,15 @@
 val list_concat : sep:'a list -> 'a list list -> 'a list
 
 module Charset : sig
-  type t = Lowers | Uppers | Numbers | Symbols1 | Symbols2 | Distros | PLs
+  type t =
+    | Lowers
+    | Uppers
+    | Numbers
+    | Symbols1
+    | Symbols2
+    | Distros
+    | PLs
+    | Chars_in_TEXT
 
   val all : t list
   val t_of_sexp : Sexplib0.Sexp.t -> t
@@ -41,6 +49,7 @@ val direction_arg : Direction.t Command.Arg_type.t
 
 type t = {
   charsets : Charset.t list;
+  custom_chars : string;
   cycles : int;
   flip_sleep : int;
   justify : Justify.t;

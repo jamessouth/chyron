@@ -6,7 +6,15 @@ let rec list_concat ~sep = function
   | h :: t -> list_concat ~sep t |> List.append (List.append h sep)
 
 module Charset = struct
-  type t = Lowers | Uppers | Numbers | Symbols1 | Symbols2 | Distros | PLs
+  type t =
+    | Lowers
+    | Uppers
+    | Numbers
+    | Symbols1
+    | Symbols2
+    | Distros
+    | PLs
+    | Chars_in_TEXT
   [@@deriving enumerate, sexp]
 
   let lowers =
@@ -220,6 +228,7 @@ module Charset = struct
             | Symbols2 -> symbols2
             | Distros -> distros
             | PLs -> pls
+            | Chars_in_TEXT -> []
           in
           loop (lt :: acc) t
     in
@@ -255,6 +264,7 @@ let direction_arg =
 
 type t = {
   charsets : Charset.t list;
+  custom_chars : string;
   cycles : int;
   flip_sleep : int;
   justify : Justify.t;
@@ -323,14 +333,15 @@ let rec extendchars chars = function
       else extendchars (h :: chars) t
 
 let run_split_flap_rando text Universal.{ prefix; suffix; terminator; width }
-    { charsets; cycles; flip_sleep; justify; sleep }
+    { charsets; custom_chars; cycles; flip_sleep; justify; sleep }
     { flip_hi_bound; flip_lo_bound } =
   let finaltex =
     text |> breakdown width |> buildup width |> pad width justify
   in
-  let chars = Charset.chars charsets in
-  print_endline @@ List.to_string ~f:Fn.id chars;
-  let chars_arr = Array.of_list chars in
+  let chars = extendchars (Charset.chars charsets) (List.concat finaltex) in
+  let finalchars = extendchars chars (Universal.uc_charlist custom_chars) in
+  print_endline @@ List.to_string ~f:Fn.id finalchars;
+  let chars_arr = Array.of_list finalchars in
   let len_chars = Array.length chars_arr in
   let input_concat = String.concat text in
   let len_input_concat = String.length input_concat in
@@ -381,13 +392,15 @@ let run_split_flap_rando text Universal.{ prefix; suffix; terminator; width }
   loopandprint finaltex
 
 let run_split_flap_alpha text Universal.{ prefix; suffix; terminator; width }
-    { charsets; cycles; flip_sleep; justify; sleep } { direction } =
+    { charsets; custom_chars; cycles; flip_sleep; justify; sleep } { direction }
+    =
   let finaltex =
     text |> breakdown width |> buildup width |> pad width justify
   in
   let chars = extendchars (Charset.chars charsets) (List.concat finaltex) in
-  print_endline @@ List.to_string ~f:Fn.id chars;
-  let chars_arr = Array.of_list chars in
+  let finalchars = extendchars chars (Universal.uc_charlist custom_chars) in
+  print_endline @@ List.to_string ~f:Fn.id finalchars;
+  let chars_arr = Array.of_list finalchars in
   let len_chars = Array.length chars_arr in
   let input_concat = String.concat text in
   let len_input_concat = String.length input_concat in
@@ -398,7 +411,6 @@ let run_split_flap_alpha text Universal.{ prefix; suffix; terminator; width }
   let print, term =
     Universal.printandterm Universal.{ prefix; suffix; terminator; width }
   in
-
   let rec run_workers inds ~letters ~flips =
     if flips <= 0 then inds
     else begin
