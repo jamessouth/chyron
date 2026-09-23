@@ -29,7 +29,7 @@ type t = {
   step : Sb.Step.t;
 }
 
-let run_scroll text Universal.{ prefix; suffix; terminator; width }
+let run_scroll text Universal.{ prefix; suffix; terminator; visual; width }
     { cycles; direction; endcap_char; endcap_len; rest; mode; step; sleep } =
   let joined_bytes, jointextlen, visual_chars = Sb.sbvals text in
   let ecl =
@@ -66,7 +66,7 @@ let run_scroll text Universal.{ prefix; suffix; terminator; width }
         takeappend,
         _ ) =
     Sb.sbfuncs ltfunc finaltext
-      Universal.{ prefix; suffix; terminator; width }
+      Universal.{ prefix; suffix; terminator; visual; width }
       cycles
   in
   begin
@@ -77,29 +77,36 @@ let run_scroll text Universal.{ prefix; suffix; terminator; width }
       (direction, step, mode, Ordering.of_int (compare visual_chars width))
     with
     | Left, Char, Reset, Greater ->
-        blchar
+        true |> blchar
         |> List.filter ~f:(fun (a, b) -> a + b <= halflen - ecl)
         |> loopandprint
     | Left, Char, Wrap, (Greater | Equal | Less) ->
-        blchar |> List.filter ~f:(fun (a, _) -> a < halflen) |> loopandprint
+        print_endline
+        @@ List.to_string
+             ~f:(fun (a, b) -> string_of_int a ^ " " ^ string_of_int b)
+             (blchar true);
+        true |> blchar
+        |> List.filter ~f:(fun (a, _) -> a < halflen)
+        |> loopandprint
     | Left, (Char | Word), Reset, Equal -> [ (0, jointextlen) ] |> loopandprint
     | Left, Word, Reset, Greater -> begin
         let l, r =
-          List.split_while blword ~f:(fun (a, b) -> a + b < halflen - ecl)
+          true |> blword
+          |> List.split_while ~f:(fun (a, b) -> a + b < halflen - ecl)
         in
         takeappend r l |> loopandprint
       end
     | Left, Word, Wrap, (Greater | Equal | Less) ->
-        List.take blword (List.length text) |> loopandprint
+        List.take (blword true) (List.length text) |> loopandprint
     | (Left | Right), (Char | Word), Reset, Less ->
         [ (0, jointextlen + ecl) ] |> loopandprint
     | Right, Char, Reset, Greater ->
-        rchar
+        false |> rchar
         |> List.filter ~f:(fun (a, _) ->
             a >= halflen + ecl && a < succ lenminuswidth)
         |> loopandprint
     | Right, Char, Wrap, (Greater | Equal | Less) ->
-        rchar
+        false |> rchar
         |> List.filter ~f:(fun (a, _) ->
             a > lenminuswidth - halflen && a < succ lenminuswidth)
         |> loopandprint
@@ -107,10 +114,11 @@ let run_scroll text Universal.{ prefix; suffix; terminator; width }
         [ (ecl, jointextlen) ] |> loopandprint
     | Right, Word, Reset, Greater -> begin
         let l, r =
-          List.split_while brword ~f:(fun (a, _) -> a > halflen + ecl)
+          true |> brword
+          |> List.split_while ~f:(fun (a, _) -> a > halflen + ecl)
         in
         takeappend r l |> loopandprint
       end
     | Right, Word, Wrap, (Greater | Equal | Less) ->
-        List.take brword (List.length text) |> loopandprint
+        List.take (brword true) (List.length text) |> loopandprint
   end

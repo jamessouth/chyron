@@ -16,15 +16,28 @@ end
 module Terminator : sig
   type t = LF | CR | Space
 
+  val all : t list
+  val t_of_sexp : Sexplib0.Sexp.t -> t
   val sexp_of_t : t -> Sexplib0.Sexp.t
 end
 
 val terminator_arg : Terminator.t Command.Arg_type.t
 
+module Visual : sig
+  type t = Chars | Columns
+
+  val all : t list
+  val t_of_sexp : Sexplib0.Sexp.t -> t
+  val sexp_of_t : t -> Sexplib0.Sexp.t
+end
+
+val visual_arg : Visual.t Command.Arg_type.t
+
 type t = {
   prefix : string;
   suffix : string;
   terminator : Terminator.t;
+  visual : Visual.t;
   width : int;
 }
 

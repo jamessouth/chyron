@@ -1,6 +1,8 @@
 module Step : sig
   type t = Char | Word
 
+  val all : t list
+  val t_of_sexp : Sexplib0.Sexp.t -> t
   val sexp_of_t : t -> Sexplib0.Sexp.t
 end
 
@@ -15,9 +17,9 @@ val sbfuncs :
   ('a list -> unit)
   * int
   * int
-  * (int * int) list
-  * (int * int) list
-  * (int * int) list
-  * (int * int) list
+  * (bool -> (int * int) list)
+  * (bool -> (int * int) list)
+  * (bool -> (int * int) list)
+  * (bool -> (int * int) list)
   * ('b list -> 'b list -> 'b list)
   * int

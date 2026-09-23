@@ -15,8 +15,10 @@ let sbvals text =
     String.length joined_text,
     List.length (Universal.uc_charlist joined_text) )
 
-let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; width } cycles =
+let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
+    cycles =
   let bytesofutfchars str visualchars =
+    print_endline str;
     let bytelen, _ =
       Uuseg_string.fold_utf_8 `Grapheme_cluster
         (fun (bytecount, charcount) char ->
@@ -24,9 +26,11 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; width } cycles =
           else (bytecount + String.length char, succ charcount))
         (0, 0) str
     in
+    print_endline @@ string_of_int bytelen;
     bytelen
   in
   let ucinds rev cl sptfn accfn wid =
+    print_endline @@ List.to_string ~f:Fn.id cl;
     let rec loop pos acc = function
       | [] -> if rev then List.rev acc else acc
       | h :: t ->
@@ -51,7 +55,8 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; width } cycles =
   let accmfn _ bts pos acc = (pos, bts) :: acc in
   let takeappend r l = List.take r 1 |> List.append l in
   let print, term =
-    Universal.printandterm Universal.{ prefix; suffix; terminator; width }
+    Universal.printandterm
+      Universal.{ prefix; suffix; terminator; visual; width }
   in
   let loopandprint pwlist =
     let pwlen = List.length pwlist in
@@ -80,14 +85,39 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; width } cycles =
     in
     loop (pwlen * cycles) 0
   in
-  ( loopandprint,
-    totallen - bytesofutfchars (String.concat charlist) width,
-    totallen asr 1,
-    ucinds true charlist wordsplitfn
+  let lenminuswidth =
+    totallen - bytesofutfchars (String.concat charlist) width
+  in
+  let brword =
+   fun rev ->
+    print_string "rw ";
+    ucinds rev charlist wordsplitfn
       (fun str bts _ acc -> (String.length str - bts, bts) :: acc)
-      width,
-    ucinds true revcharlist (fun _ -> 1) accmfn width,
-    ucinds true revcharlist wordsplitfn accmfn width,
-    ucinds false revcharlist (fun _ -> 1) accmfn width,
+      width
+  in
+  let blchar =
+   fun rev ->
+    print_string "lc ";
+    ucinds rev revcharlist (fun _ -> 1) accmfn width
+  in
+
+  let blword =
+   fun rev ->
+    print_string "lw ";
+    ucinds rev revcharlist wordsplitfn accmfn width
+  in
+  let rchar =
+   fun rev ->
+    print_string "rc ";
+    ucinds rev revcharlist (fun _ -> 1) accmfn width
+  in
+
+  ( loopandprint,
+    lenminuswidth,
+    totallen asr 1,
+    brword,
+    blchar,
+    blword,
+    rchar,
     takeappend,
     totallen )

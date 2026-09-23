@@ -18,12 +18,16 @@ let univ_flags =
     flag_optional_with_default_doc "--terminator" ~aliases:[ "-t" ]
       terminator_arg Terminator.sexp_of_t ~default:Terminator.LF
       ~doc:"string terminating character when printing TEXT\n"
+  and visual =
+    flag_optional_with_default_doc "--visual" ~aliases:[ "-v" ] visual_arg
+      Visual.sexp_of_t ~default:Visual.Chars
+      ~doc:"string display --width characters or terminal columns\n"
   and width =
     flag_optional_with_default_doc "--width" ~aliases:[ "-w" ] int Int.sexp_of_t
       ~default:17 ~doc:"int display width of TEXT, exclusive of {pre,suf}fix\n"
   in
   if width < 2 then invalid_arg "width less than 2";
-  { prefix; suffix; terminator; width }
+  { prefix; suffix; terminator; visual; width }
 
 let bounce_flags =
   let open Bounce in

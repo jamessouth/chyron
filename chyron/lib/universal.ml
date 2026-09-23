@@ -24,24 +24,38 @@ let terminator_arg =
     ~case_sensitive:false ~list_values_in_help:true
     (module Terminator : Command.Enumerable_sexpable with type t = Terminator.t)
 
+module Visual = struct
+  type t = Chars | Columns [@@deriving enumerate, sexp]
+end
+
+let visual_arg =
+  Command.Arg_type.enumerated_sexpable ~accept_unique_prefixes:true
+    ~case_sensitive:false ~list_values_in_help:true
+    (module Visual : Command.Enumerable_sexpable with type t = Visual.t)
+
 type t = {
   prefix : string;
   suffix : string;
   terminator : Terminator.t;
+  visual : Visual.t;
   width : int;
 }
 
 let printandterm { prefix; suffix; terminator; _ } =
   (* setting these chars here instead of as constructor payloads because of the way they make the help text look*)
+  let lastchar =
+    let open Terminator in
+    match terminator with LF -> '\n' | CR -> '\r' | Space -> ' '
+  in
   let pfix = Bytes.of_string prefix in
+  let plen = Bytes.length pfix in
   let sfix = Bytes.of_string suffix in
+  let slen = Bytes.length sfix in
   let print ft pos wid =
-    Externs.unsafe_output_bytes stdout pfix 0 (Bytes.length pfix);
+    Externs.unsafe_output_bytes stdout pfix 0 plen;
     Externs.unsafe_output_bytes stdout ft pos wid;
-    Externs.unsafe_output_bytes stdout sfix 0 (Bytes.length sfix);
-    Externs.unsafe_output_char stdout
-      (let open Terminator in
-       match terminator with LF -> '\n' | CR -> '\r' | Space -> ' ');
+    Externs.unsafe_output_bytes stdout sfix 0 slen;
+    Externs.unsafe_output_char stdout lastchar;
     Externs.unsafe_flush stdout
   in
   let term =

@@ -8,7 +8,7 @@ type t = {
   sleep : int;
 }
 
-let run_bounce text Universal.{ prefix; suffix; terminator; width }
+let run_bounce text Universal.{ prefix; suffix; terminator; visual; width }
     { cycles; endcap_char; rest; step; sleep } =
   let joined_bytes, jointextlen, visual_chars = Sb.sbvals text in
   let ecl = Int.max 0 (width - visual_chars) in
@@ -36,7 +36,7 @@ let run_bounce text Universal.{ prefix; suffix; terminator; width }
         takeappend,
         totallen ) =
     Sb.sbfuncs ltfunc finaltext
-      Universal.{ prefix; suffix; terminator; width }
+      Universal.{ prefix; suffix; terminator; visual; width }
       cycles
   in
   begin
@@ -44,13 +44,14 @@ let run_bounce text Universal.{ prefix; suffix; terminator; width }
     match (step, Ordering.of_int (compare visual_chars width)) with
     | Char, (Greater | Equal | Less) ->
         let l, r =
-          List.split_while blchar ~f:(fun (a, b) -> a + b < totallen)
+          true |> blchar |> List.split_while ~f:(fun (a, b) -> a + b < totallen)
         in
         List.drop l 1 |> List.rev
         |> List.append (takeappend r l)
         |> loopandprint
     | Word, Greater -> begin
-        brword |> List.append blword
+        true |> brword
+        |> List.append @@ blword true
         |> List.filteri ~f:(fun i (a, _) ->
             (a > 0 || i = 0) && a <= lenminuswidth)
         |> List.remove_consecutive_duplicates ~which_to_keep:`Last

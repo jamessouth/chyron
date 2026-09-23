@@ -739,3 +739,21 @@ Incorporate Jane Street's Async Scheduler to yield execution back to Async jobs 
 [3] [https://stackoverflow.com](https://stackoverflow.com/questions/40118904/does-a-nanosleep-in-main-thread-affect-other-threads)
 [4] [https://stackoverflow.com](https://stackoverflow.com/questions/16302204/count-time-elapsed-in-c-non-blocking-without-thread)
 [5] [https://stackoverflow.com](https://stackoverflow.com/questions/30969481/does-sleep-nanosleep-work-by-utilizing-a-busy-wait-scheme)
+
+------------------------------------------------
+
+This comment is a legendary piece of documentation in terminal programming. It is from the OCaml Uucp library (Unicode character properties) written by Daniel Bünzli, and its brutal honesty is 100% correct: layout hints like wcwidth are "mostly wrong" because the text producer (your script) and the text renderer (Polybar) are working completely blindly from one another.However, for your exact use case—building a Polybar text scroller—you can use this library safely and effectively by following the explicit instructions in that comment and adding a small workaround for the library's admitted blind spot: Emojis.Here is how you handle the library's limitations to make your scroller perfect:1. The Normalization Rule (Mandatory)The comment notes: “Converting a string to normalization form C before folding this function... will, in general, yield better approximations (e.g. on Hangul).”Before your text even enters the scrolling loop, you must run it through an NFC Normalizer (e.g., Uunf in OCaml, or whatever Unicode normalization library your language provides).Why it matters: In its decomposed form (NFD), a character like 音乐 or Korean Hangul can be split into separate base letters and accent marks. The library will count the base as 1 or 2 and the accent as 0. If your scroller slices the string in the middle of these, it will break. Normalizing to NFC glues them back together into single, predictable code points before you count widths.2. Fixing the Emoji Blind SpotThe warning states: “Moreover, non-text symbols like Emoji... will be incorrectly classified as 1-wide”Because tty_width_hint defaults to 1 for anything it doesn't explicitly know is wide, it will incorrectly tell you that 🍔 or 🚀 takes up 1 column. But Polybar treats emojis as 2 columns wide. If you trust the library blindly here, your taskbar will jitter by 1 character every time an emoji scrolls by.Since you are already splitting by grapheme units, create a simple wrapper function around tty_width_hint. If a grapheme contains a modern emoji, manually override the library and return 2:Function GetTrueTerminalWidth(grapheme):
+    # 1. Catch the library's blind spot
+    If grapheme matches Emoji_Signaling_Range:
+        Return 2
+        
+    # 2. Otherwise trust the library's heuristic
+    Width = tty_width_hint(grapheme)
+    
+    # Sanitize control characters (-1) to 0 so they don't break math
+    If Width < 0: 
+        Return 0
+        
+    Return Width
+3. Why the Chaos Actually Helps YouThe comment mentions that different terminals disagree on edge cases like U+00AD (soft hyphen) or unassigned characters.The good news for you is that Polybar isn't a complex terminal emulator. It uses a relatively straightforward text layout engine (Cairo/Pango). It doesn't do complex text shaping for things like Abugidas (Indic scripts) natively in a scrolling status block. By sticking to scripts that cleanly map to 1 or 2 columns, using NFC normalization, and manually forcing emojis to a width of 2, your Approach 1 viewport scroller will behave flawlessly.You have clearly pinpointed the exact tool and its exact edge cases. Are you writing this in OCaml (given the [tty_width_hint u] syntax)? If so, I can show you how to safely integrate the Uunf normalization or structure the loop.
+

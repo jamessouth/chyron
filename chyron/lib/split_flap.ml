@@ -332,7 +332,8 @@ let rec extendchars chars = function
         extendchars chars t
       else extendchars (h :: chars) t
 
-let run_split_flap_rando text Universal.{ prefix; suffix; terminator; width }
+let run_split_flap_rando text
+    Universal.{ prefix; suffix; terminator; visual; width }
     { charsets; custom_chars; cycles; flip_sleep; justify; sleep }
     { flip_hi_bound; flip_lo_bound } =
   let finaltex =
@@ -350,7 +351,8 @@ let run_split_flap_rando text Universal.{ prefix; suffix; terminator; width }
   in
   let buffer = Bytes.create ((width lsl 2) + excess_bytes) in
   let print, term =
-    Universal.printandterm Universal.{ prefix; suffix; terminator; width }
+    Universal.printandterm
+      Universal.{ prefix; suffix; terminator; visual; width }
   in
   let rec run_workers counts ~letters ~flips =
     if flips <= 0 then ()
@@ -391,7 +393,8 @@ let run_split_flap_rando text Universal.{ prefix; suffix; terminator; width }
   ();
   loopandprint finaltex
 
-let run_split_flap_alpha text Universal.{ prefix; suffix; terminator; width }
+let run_split_flap_alpha text
+    Universal.{ prefix; suffix; terminator; visual; width }
     { charsets; custom_chars; cycles; flip_sleep; justify; sleep } { direction }
     =
   let finaltex =
@@ -409,7 +412,8 @@ let run_split_flap_alpha text Universal.{ prefix; suffix; terminator; width }
   in
   let buffer = Bytes.create ((width lsl 2) + excess_bytes) in
   let print, term =
-    Universal.printandterm Universal.{ prefix; suffix; terminator; width }
+    Universal.printandterm
+      Universal.{ prefix; suffix; terminator; visual; width }
   in
   let rec run_workers inds ~letters ~flips =
     if flips <= 0 then inds
