@@ -18,7 +18,7 @@ let sbvals text =
 let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     cycles =
   let bytesofutfchars str visualchars =
-    print_endline str;
+    (* print_endline str; *)
     let bytelen, _ =
       Uuseg_string.fold_utf_8 `Grapheme_cluster
         (fun (bytecount, charcount) char ->
@@ -26,23 +26,64 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
           else (bytecount + String.length char, succ charcount))
         (0, 0) str
     in
-    print_endline @@ string_of_int bytelen;
+    (* print_endline @@ string_of_int bytelen; *)
+    bytelen
+  in
+
+  let bytesofcolumns str cols =
+    (* print_endline str; *)
+    let bytelen, _ =
+      Uuseg_string.fold_utf_8 `Grapheme_cluster
+        (fun (bytecount, col) char ->
+          if col > cols then (-1, col)
+          else if col = cols then (bytecount, col)
+          else
+            ( bytecount + String.length char,
+              let a =
+                String.Utf8.get
+                  (String.Utf8.of_string_unchecked char)
+                  ~byte_pos:0
+              in
+              let b = Uucp.Break.east_asian_width a in
+              let c = match b with `W | `F -> 2 | _ -> 1 in
+              col + c ))
+        (0, 0) str
+    in
+    (* print_endline @@ string_of_int bytelen; *)
     bytelen
   in
   let ucinds rev cl sptfn accfn wid =
-    print_endline @@ List.to_string ~f:Fn.id cl;
-    let rec loop pos acc = function
-      | [] -> if rev then List.rev acc else acc
-      | h :: t ->
-          let lt = h :: t in
-          let str = String.concat lt in
-          let bts = bytesofutfchars str wid in
-          let l, r = List.split_n lt (sptfn lt) in
-          (loop [@tailcall])
-            (String.length (String.concat l) + pos)
-            (accfn str bts pos acc) r
-    in
-    loop 0 [] cl
+    let open Universal.Visual in
+    match visual with
+    | Chars ->
+        let rec loop pos acc = function
+          | [] -> if rev then List.rev acc else acc
+          | h :: t ->
+              let lt = h :: t in
+              let str = String.concat lt in
+              let bts = bytesofutfchars str wid in
+              let l, r = List.split_n lt (sptfn lt) in
+              (loop [@tailcall])
+                (String.length (String.concat l) + pos)
+                (accfn str bts pos acc) r
+        in
+        loop 0 [] cl
+    | Columns ->
+        let rec loop pos acc = function
+          | [] -> if rev then List.rev acc else acc
+          | h :: t ->
+              let lt = h :: t in
+              let str = String.concat lt in
+              let bts = bytesofcolumns str wid in
+              let l, r = List.split_n lt (sptfn lt) in
+              if bts < 0 then
+                (loop [@tailcall]) (String.length (String.concat l) + pos) acc r
+              else
+                (loop [@tailcall])
+                  (String.length (String.concat l) + pos)
+                  (accfn str bts pos acc) r
+        in
+        loop 0 [] cl
   in
   let charlist = Universal.uc_charlist (Bytes.to_string ft) in
   let revcharlist = List.rev charlist in
@@ -86,29 +127,32 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     loop (pwlen * cycles) 0
   in
   let lenminuswidth =
-    totallen - bytesofutfchars (String.concat charlist) width
+    let open Universal.Visual in
+    match visual with
+    | Chars -> totallen - bytesofutfchars (String.concat charlist) width
+    | Columns -> totallen - bytesofcolumns (String.concat charlist) width
   in
   let brword =
    fun rev ->
-    print_string "rw ";
+    print_endline "rw ";
     ucinds rev charlist wordsplitfn
       (fun str bts _ acc -> (String.length str - bts, bts) :: acc)
       width
   in
   let blchar =
    fun rev ->
-    print_string "lc ";
+    print_endline "lc ";
     ucinds rev revcharlist (fun _ -> 1) accmfn width
   in
 
   let blword =
    fun rev ->
-    print_string "lw ";
+    print_endline "lw ";
     ucinds rev revcharlist wordsplitfn accmfn width
   in
   let rchar =
    fun rev ->
-    print_string "rc ";
+    print_endline "rc ";
     ucinds rev revcharlist (fun _ -> 1) accmfn width
   in
 

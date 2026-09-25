@@ -81,10 +81,10 @@ let run_scroll text Universal.{ prefix; suffix; terminator; visual; width }
         |> List.filter ~f:(fun (a, b) -> a + b <= halflen - ecl)
         |> loopandprint
     | Left, Char, Wrap, (Greater | Equal | Less) ->
-        print_endline
+        (* print_endline
         @@ List.to_string
              ~f:(fun (a, b) -> string_of_int a ^ " " ^ string_of_int b)
-             (blchar true);
+             (blchar true); *)
         true |> blchar
         |> List.filter ~f:(fun (a, _) -> a < halflen)
         |> loopandprint
@@ -106,6 +106,14 @@ let run_scroll text Universal.{ prefix; suffix; terminator; visual; width }
             a >= halflen + ecl && a < succ lenminuswidth)
         |> loopandprint
     | Right, Char, Wrap, (Greater | Equal | Less) ->
+        let lenminuswidth = 26 in
+        print_endline @@ string_of_int lenminuswidth;
+        print_endline @@ string_of_int halflen;
+        print_endline
+        @@ List.to_string
+             ~f:(fun (a, b) -> string_of_int a ^ " " ^ string_of_int b)
+             (rchar false);
+
         false |> rchar
         |> List.filter ~f:(fun (a, _) ->
             a > lenminuswidth - halflen && a < succ lenminuswidth)
