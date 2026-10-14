@@ -34,6 +34,9 @@ let run_bounce text Universal.{ prefix; suffix; terminator; visual; width }
         blword,
         _,
         takeappend,
+        _doublewidth,
+        _charlist,
+        _revcharlist,
         totallen ) =
     Sb.sbfuncs ltfunc finaltext
       Universal.{ prefix; suffix; terminator; visual; width }

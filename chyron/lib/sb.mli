@@ -22,4 +22,7 @@ val sbfuncs :
   * (bool -> (int * int) list)
   * (bool -> (int * int) list)
   * ('b list -> 'b list -> 'b list)
+  * ((string * int) list -> int -> bool -> unit)
+  * string list
+  * string list
   * int

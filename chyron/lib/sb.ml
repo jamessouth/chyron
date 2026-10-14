@@ -17,8 +17,48 @@ let sbvals text =
 
 let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     cycles =
+  let doublewidth chl wid rev =
+    let rec loop cols acc lt =
+      match lt with
+      | [] -> ()
+      | h :: t ->
+          (* Printf.printf "%d %s -- " cols
+            (List.to_string ~f:(fun (a, b) -> a ^ "_" ^ string_of_int b) acc); *)
+          if cols < wid then loop (cols + snd h) (h :: acc) t
+          else if cols > wid then (
+            let hd, tl = List.split_n acc 1 in
+            let z =
+              if rev then List.map (List.rev tl) ~f:fst else List.map tl ~f:fst
+            in
+            print_endline @@ " " ^ String.concat z;
+            let last = List.last_exn tl in
+            let nacc = List.drop_last_exn tl in
+            let facc =
+              if snd last = 2 then
+                List.hd_exn hd :: List.rev ((" ", 1) :: List.rev nacc)
+              else List.hd_exn hd :: nacc
+            in
+            let ncols = List.fold facc ~init:0 ~f:(fun acm (_, b) -> acm + b) in
+            loop ncols facc lt)
+          else
+            let z =
+              if rev then List.map (List.rev acc) ~f:fst
+              else List.map acc ~f:fst
+            in
+            print_endline @@ String.concat z;
+            let last = List.last_exn acc in
+            let nacc = List.drop_last_exn acc in
+            let facc =
+              if snd last = 2 then h :: List.rev ((" ", 1) :: List.rev nacc)
+              else h :: nacc
+            in
+            let ncols = List.fold facc ~init:0 ~f:(fun acm (_, b) -> acm + b) in
+            loop ncols facc t
+    in
+    loop 0 [] chl
+  in
+
   let bytesofutfchars str visualchars =
-    print_endline str;
     let bytelen, _ =
       Uuseg_string.fold_utf_8 `Grapheme_cluster
         (fun (bytecount, charcount) char ->
@@ -26,11 +66,9 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
           else (bytecount + String.length char, succ charcount))
         (0, 0) str
     in
-    print_endline @@ string_of_int bytelen;
     bytelen
   in
   let ucinds rev cl sptfn accfn wid =
-    print_endline @@ List.to_string ~f:Fn.id cl;
     let rec loop pos acc = function
       | [] -> if rev then List.rev acc else acc
       | h :: t ->
@@ -44,6 +82,7 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     in
     loop 0 [] cl
   in
+  print_endline @@ Bytes.to_string ft;
   let charlist = Universal.uc_charlist (Bytes.to_string ft) in
   let revcharlist = List.rev charlist in
   let totallen = Bytes.length ft in
@@ -100,7 +139,6 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     print_string "lc ";
     ucinds rev revcharlist (fun _ -> 1) accmfn width
   in
-
   let blword =
    fun rev ->
     print_string "lw ";
@@ -111,7 +149,6 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     print_string "rc ";
     ucinds rev revcharlist (fun _ -> 1) accmfn width
   in
-
   ( loopandprint,
     lenminuswidth,
     totallen asr 1,
@@ -120,4 +157,7 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     blword,
     rchar,
     takeappend,
+    doublewidth,
+    charlist,
+    revcharlist,
     totallen )

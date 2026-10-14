@@ -64,6 +64,9 @@ let run_scroll text Universal.{ prefix; suffix; terminator; visual; width }
         blword,
         rchar,
         takeappend,
+        doublewidth,
+        charlist,
+        revcharlist,
         _ ) =
     Sb.sbfuncs ltfunc finaltext
       Universal.{ prefix; suffix; terminator; visual; width }
@@ -73,52 +76,88 @@ let run_scroll text Universal.{ prefix; suffix; terminator; visual; width }
     let open Direction in
     let open Mode in
     let open Sb.Step in
+    let open Universal.Visual in
     match
-      (direction, step, mode, Ordering.of_int (compare visual_chars width))
+      ( direction,
+        step,
+        mode,
+        visual,
+        Ordering.of_int (compare visual_chars width) )
     with
-    | Left, Char, Reset, Greater ->
+    | Left, Char, Reset, Chars, Greater ->
         true |> blchar
         |> List.filter ~f:(fun (a, b) -> a + b <= halflen - ecl)
         |> loopandprint
-    | Left, Char, Wrap, (Greater | Equal | Less) ->
-        print_endline
-        @@ List.to_string
-             ~f:(fun (a, b) -> string_of_int a ^ " " ^ string_of_int b)
-             (blchar true);
+    | Left, Char, Reset, Columns, Greater -> ()
+    | Left, Char, Wrap, Chars, (Greater | Equal | Less) ->
         true |> blchar
         |> List.filter ~f:(fun (a, _) -> a < halflen)
         |> loopandprint
-    | Left, (Char | Word), Reset, Equal -> [ (0, jointextlen) ] |> loopandprint
-    | Left, Word, Reset, Greater -> begin
+    | Left, Char, Wrap, Columns, (Greater | Equal | Less) ->
+        print_endline "here3";
+        let xx =
+          List.map revcharlist ~f:(fun x ->
+              let a =
+                String.Utf8.get (String.Utf8.of_string_unchecked x) ~byte_pos:0
+              in
+              let b = Uucp.Break.east_asian_width a in
+              let c = match b with `W | `F -> 2 | _ -> 1 in
+              (x, c))
+        in
+        doublewidth xx width true
+    | Left, (Char | Word), Reset, Chars, Equal ->
+        [ (0, jointextlen) ] |> loopandprint
+    | Left, (Char | Word), Reset, Columns, Equal -> ()
+    | Left, Word, Reset, Chars, Greater -> begin
         let l, r =
           true |> blword
           |> List.split_while ~f:(fun (a, b) -> a + b < halflen - ecl)
         in
         takeappend r l |> loopandprint
       end
-    | Left, Word, Wrap, (Greater | Equal | Less) ->
+    | Left, Word, Reset, Columns, Greater -> ()
+    | Left, Word, Wrap, Chars, (Greater | Equal | Less) ->
         List.take (blword true) (List.length text) |> loopandprint
-    | (Left | Right), (Char | Word), Reset, Less ->
+    | Left, Word, Wrap, Columns, (Greater | Equal | Less) -> ()
+    | (Left | Right), (Char | Word), Reset, Chars, Less ->
         [ (0, jointextlen + ecl) ] |> loopandprint
-    | Right, Char, Reset, Greater ->
+    | (Left | Right), (Char | Word), Reset, Columns, Less -> ()
+    | Right, Char, Reset, Chars, Greater ->
         false |> rchar
         |> List.filter ~f:(fun (a, _) ->
             a >= halflen + ecl && a < succ lenminuswidth)
         |> loopandprint
-    | Right, Char, Wrap, (Greater | Equal | Less) ->
+    | Right, Char, Reset, Columns, Greater -> ()
+    | Right, Char, Wrap, Chars, (Greater | Equal | Less) ->
+        print_endline "here1";
         false |> rchar
         |> List.filter ~f:(fun (a, _) ->
             a > lenminuswidth - halflen && a < succ lenminuswidth)
         |> loopandprint
-    | Right, (Char | Word), Reset, Equal ->
+    | Right, Char, Wrap, Columns, (Greater | Equal | Less) ->
+        print_endline "here2";
+        let xx =
+          List.map charlist ~f:(fun x ->
+              let a =
+                String.Utf8.get (String.Utf8.of_string_unchecked x) ~byte_pos:0
+              in
+              let b = Uucp.Break.east_asian_width a in
+              let c = match b with `W | `F -> 2 | _ -> 1 in
+              (x, c))
+        in
+        doublewidth xx width false
+    | Right, (Char | Word), Reset, Chars, Equal ->
         [ (ecl, jointextlen) ] |> loopandprint
-    | Right, Word, Reset, Greater -> begin
+    | Right, (Char | Word), Reset, Columns, Equal -> ()
+    | Right, Word, Reset, Chars, Greater -> begin
         let l, r =
           true |> brword
           |> List.split_while ~f:(fun (a, _) -> a > halflen + ecl)
         in
         takeappend r l |> loopandprint
       end
-    | Right, Word, Wrap, (Greater | Equal | Less) ->
+    | Right, Word, Reset, Columns, Greater -> ()
+    | Right, Word, Wrap, Chars, (Greater | Equal | Less) ->
         List.take (brword true) (List.length text) |> loopandprint
+    | Right, Word, Wrap, Columns, (Greater | Equal | Less) -> ()
   end
