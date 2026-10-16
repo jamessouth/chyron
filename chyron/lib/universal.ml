@@ -51,9 +51,9 @@ let printandterm { prefix; suffix; terminator; _ } =
   let plen = Bytes.length pfix in
   let sfix = Bytes.of_string suffix in
   let slen = Bytes.length sfix in
-  let print ft pos wid =
+  let print buf pos wid =
     Externs.unsafe_output_bytes stdout pfix 0 plen;
-    Externs.unsafe_output_bytes stdout ft pos wid;
+    Externs.unsafe_output_bytes stdout buf pos wid;
     Externs.unsafe_output_bytes stdout sfix 0 slen;
     Externs.unsafe_output_char stdout lastchar;
     Externs.unsafe_flush stdout

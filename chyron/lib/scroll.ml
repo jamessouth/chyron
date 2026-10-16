@@ -131,7 +131,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
       step;
       sleep = _;
     } =
-  let joined_bytes, _, visual_chars = Sb.sbvals text in
+  let joined_bytes, jointextlen, visual_chars = Sb.sbvals text in
   let ecl =
     Int.clamp_exn
       (Int.max endcap_len (width - visual_chars))
@@ -169,8 +169,13 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
               let c = match b with `W | `F -> 2 | _ -> 1 in
               (x, c))
         in
-        let pp = List.append xx (List.take xx (List.length xx - width - ecl)) in
-        Sb.doublewidth pp true width cycles print term
+        let ff =
+          List.fold xx ~init:(0, []) ~f:(fun acc x ->
+              if fst acc >= width then acc else (snd x + fst acc, x :: snd acc))
+        in
+        let pp = List.append xx (List.rev (snd ff)) in
+
+        Sb.doublewidth pp true width cycles print term jointextlen
     | Left, (Char | Word), Reset, Equal -> ()
     | Left, Word, Reset, Greater -> ()
     | Left, Word, Wrap, (Greater | Equal | Less) -> ()
@@ -187,7 +192,11 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
               let c = match b with `W | `F -> 2 | _ -> 1 in
               (x, c))
         in
-        let pp = List.append xx (List.take xx (List.length xx - width - ecl)) in
+        let ff =
+          List.fold xx ~init:(0, []) ~f:(fun acc x ->
+              if fst acc >= width then acc else (snd x + fst acc, x :: snd acc))
+        in
+        let pp = List.append xx (List.rev (snd ff)) in
         (* Printf.printf "%s "
           (List.to_string ~f:(fun (a, b) -> a ^ "_" ^ string_of_int b) pp);
         print_endline "";
@@ -195,7 +204,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
           (List.to_string
              ~f:(fun (a, b) -> a ^ "_" ^ string_of_int b)
              (List.append xx xx)); *)
-        Sb.doublewidth pp false width cycles print term
+        Sb.doublewidth pp false width cycles print term jointextlen
     | Right, (Char | Word), Reset, Equal -> ()
     | Right, Word, Reset, Greater -> ()
     | Right, Word, Wrap, (Greater | Equal | Less) -> ()

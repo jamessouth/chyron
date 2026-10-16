@@ -118,7 +118,9 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     takeappend,
     totallen )
 
-let doublewidth chl rev wid cycles _print term =
+let doublewidth chl rev wid cycles print term buflen =
+  let buffer = Bytes.create buflen in
+
   let rec loop ticks cols acc lt =
     match (ticks > 0, lt) with
     | false, _ -> term ()
@@ -129,11 +131,17 @@ let doublewidth chl rev wid cycles _print term =
         if cols < wid then loop ticks (cols + snd h) (h :: acc) t
         else if cols > wid then (
           let hd, tl = List.split_n acc 1 in
-          let z =
-            if rev then List.map (List.rev ((" ", 1) :: tl)) ~f:fst
-            else List.map ((" ", 1) :: tl) ~f:fst
+          let line =
+            (if rev then List.map (List.rev ((" ", 1) :: tl)) ~f:fst
+             else List.map ((" ", 1) :: tl) ~f:fst)
+            |> String.concat
           in
-          print_endline @@ String.concat z;
+
+          let llen = String.length line in
+          Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer
+            ~dst_pos:0 ~len:llen;
+          print buffer 0 llen;
+
           let last = List.last_exn tl in
           let nacc = List.drop_last_exn tl in
           let facc =

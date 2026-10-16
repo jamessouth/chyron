@@ -344,12 +344,7 @@ let run_split_flap_rando text
   print_endline @@ List.to_string ~f:Fn.id finalchars;
   let chars_arr = Array.of_list finalchars in
   let len_chars = Array.length chars_arr in
-  let input_concat = String.concat text in
-  let len_input_concat = String.length input_concat in
-  let excess_bytes =
-    len_input_concat - List.length (Universal.uc_charlist input_concat)
-  in
-  let buffer = Bytes.create ((width lsl 2) + excess_bytes) in
+  let buffer = Bytes.create (String.length (String.concat text)) in
   let print, term =
     let open Universal in
     printandterm { prefix; suffix; terminator; visual; width }
@@ -361,7 +356,7 @@ let run_split_flap_rando text
         List.map2_exn counts letters ~f:(fun c l ->
             if c < 1 then l
             else Random.int len_chars |> Array.unsafe_get chars_arr)
-        |> String.concat ~sep:""
+        |> String.concat
       in
       let llen = String.length line in
       Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer ~dst_pos:0
