@@ -197,7 +197,7 @@ let scroll =
        let open Visual in
        match univ_flags.visual with
        | Chars -> Scroll.run_scroll_chars text univ_flags scroll_flags
-       | Columns -> Scroll.run_scroll_cols text univ_flags.width scroll_flags)
+       | Columns -> Scroll.run_scroll_cols text univ_flags scroll_flags)
 
 let split_flap_alpha =
   Command.basic ~summary:"flip through characters in alphabetical order"

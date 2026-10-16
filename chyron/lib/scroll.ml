@@ -72,8 +72,8 @@ let run_scroll_chars text
   in
   begin
     let open Direction in
-    let open Mode in
     let open Sb.Step in
+    let open Mode in
     match
       (direction, step, mode, Ordering.of_int (compare visual_chars width))
     with
@@ -120,37 +120,40 @@ let run_scroll_chars text
         List.take (brword true) (List.length text) |> loopandprint
   end
 
-let run_scroll_cols text width
-    { cycles; direction; endcap_char; endcap_len; rest; mode; step; sleep } =
-  let joined_bytes, jointextlen, visual_chars = Sb.sbvals text in
+let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
+    {
+      cycles;
+      direction;
+      endcap_char;
+      endcap_len;
+      rest = _;
+      mode;
+      step;
+      sleep = _;
+    } =
+  let joined_bytes, _, visual_chars = Sb.sbvals text in
   let ecl =
     Int.clamp_exn
       (Int.max endcap_len (width - visual_chars))
       ~min:1 ~max:(pred width)
   in
   let ecp = Bytes.make ecl endcap_char in
-  let base = Stdlib.Bytes.cat (Stdlib.Bytes.cat ecp joined_bytes) ecp in
   let finaltext =
     let open Direction in
     match direction with
-    | Left -> Stdlib.Bytes.cat joined_bytes base
-    | Right -> Stdlib.Bytes.cat base joined_bytes
+    | Left -> Stdlib.Bytes.cat joined_bytes ecp
+    | Right -> Stdlib.Bytes.cat ecp joined_bytes
   in
-  let ltfunc pwlist pwlen =
-    let tot = sleep + rest in
-    let open Mode in
-    match mode with
-    | Wrap ->
-        List.mapi pwlist ~f:(fun i (p, w) ->
-            if i = 0 then (p, w, tot) else (p, w, sleep))
-    | Reset ->
-        List.mapi pwlist ~f:(fun i (p, w) ->
-            if i = 0 || i = pred pwlen then (p, w, tot) else (p, w, sleep))
+  let charlist = Universal.uc_charlist (Bytes.to_string finaltext) in
+  let revcharlist = List.rev charlist in
+  let open Universal in
+  let print, term =
+    printandterm { prefix; suffix; terminator; visual; width }
   in
   begin
     let open Direction in
-    let open Mode in
     let open Sb.Step in
+    let open Mode in
     match
       (direction, step, mode, Ordering.of_int (compare visual_chars width))
     with
@@ -166,7 +169,8 @@ let run_scroll_cols text width
               let c = match b with `W | `F -> 2 | _ -> 1 in
               (x, c))
         in
-        Sb.doublewidth xx true width cycles
+        let pp = List.append xx (List.take xx (List.length xx - width - ecl)) in
+        Sb.doublewidth pp true width cycles print term
     | Left, (Char | Word), Reset, Equal -> ()
     | Left, Word, Reset, Greater -> ()
     | Left, Word, Wrap, (Greater | Equal | Less) -> ()
@@ -183,7 +187,15 @@ let run_scroll_cols text width
               let c = match b with `W | `F -> 2 | _ -> 1 in
               (x, c))
         in
-        Sb.doublewidth xx false width cycles
+        let pp = List.append xx (List.take xx (List.length xx - width - ecl)) in
+        (* Printf.printf "%s "
+          (List.to_string ~f:(fun (a, b) -> a ^ "_" ^ string_of_int b) pp);
+        print_endline "";
+        Printf.printf "%s "
+          (List.to_string
+             ~f:(fun (a, b) -> a ^ "_" ^ string_of_int b)
+             (List.append xx xx)); *)
+        Sb.doublewidth pp false width cycles print term
     | Right, (Char | Word), Reset, Equal -> ()
     | Right, Word, Reset, Greater -> ()
     | Right, Word, Wrap, (Greater | Equal | Less) -> ()

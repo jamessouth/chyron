@@ -118,12 +118,7 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     takeappend,
     totallen )
 
-let doublewidth chl rev wid cycles
-    Universal.{ prefix; suffix; terminator; visual; width } =
-  let _print, term =
-    let open Universal in
-    printandterm { prefix; suffix; terminator; visual; width }
-  in
+let doublewidth chl rev wid cycles _print term =
   let rec loop ticks cols acc lt =
     match (ticks > 0, lt) with
     | false, _ -> term ()
