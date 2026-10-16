@@ -351,8 +351,8 @@ let run_split_flap_rando text
   in
   let buffer = Bytes.create ((width lsl 2) + excess_bytes) in
   let print, term =
-    Universal.printandterm
-      Universal.{ prefix; suffix; terminator; visual; width }
+    let open Universal in
+    printandterm { prefix; suffix; terminator; visual; width }
   in
   let rec run_workers counts ~letters ~flips =
     if flips <= 0 then ()

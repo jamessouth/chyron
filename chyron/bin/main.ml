@@ -192,7 +192,12 @@ let scroll =
        anon (non_empty_sequence_as_list ("text" %: string))
      and univ_flags
      and scroll_flags in
-     fun () -> Scroll.run_scroll text univ_flags scroll_flags)
+     fun () ->
+       let open Universal in
+       let open Visual in
+       match univ_flags.visual with
+       | Chars -> Scroll.run_scroll_chars text univ_flags scroll_flags
+       | Columns -> Scroll.run_scroll_cols text univ_flags.width scroll_flags)
 
 let split_flap_alpha =
   Command.basic ~summary:"flip through characters in alphabetical order"
