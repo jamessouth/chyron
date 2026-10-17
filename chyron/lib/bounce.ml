@@ -14,7 +14,7 @@ let run_bounce text Universal.{ prefix; suffix; terminator; visual; width }
   let ecl = Int.max 0 (width - visual_chars) in
   let ecp = Bytes.make ecl endcap_char in
   let finaltext = Stdlib.Bytes.cat (Stdlib.Bytes.cat ecp joined_bytes) ecp in
-  let ltfunc pwlist _ =
+  let ltfunc pwlist =
     let tot = sleep + rest in
     let maxpos =
       let rec loop max = function

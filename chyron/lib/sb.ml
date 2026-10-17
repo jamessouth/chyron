@@ -57,8 +57,7 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     printandterm { prefix; suffix; terminator; visual; width }
   in
   let loopandprint pwlist =
-    let pwlen = List.length pwlist in
-    let pwslist = ltfunc pwlist pwlen in
+    let pwslist = ltfunc pwlist in
     let flatlist =
       let rec loop = function
         | [] -> []
@@ -81,7 +80,7 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
         (loop [@tailcall]) (pred ticks) nidx
       end
     in
-    loop (pwlen * cycles) 0
+    loop (List.length pwlist * cycles) 0
   in
   let lenminuswidth =
     totallen - bytesofutfchars (String.concat charlist) width
@@ -122,18 +121,27 @@ let doublewidth chl rev wid cycles print term buflen =
   let buffer = Bytes.create buflen in
 
   let rec loop ticks cols acc lt =
-    match (ticks > 0, lt) with
-    | false, _ -> term ()
-    | true, [] -> loop (pred ticks) 0 [] chl
-    | true, h :: t ->
-        (* Printf.printf "%d %s -- " cols
-            (List.to_string ~f:(fun (a, b) -> a ^ "_" ^ string_of_int b) acc); *)
-        if cols < wid then loop ticks (cols + snd h) (h :: acc) t
+    match (ticks < 1, lt) with
+    | true, _ -> term ()
+    | false, [] -> loop (pred ticks) 0 [] chl
+    | false, (first_h, second_h, third_h) :: t ->
+        Printf.printf "%d %s -- " cols
+          (List.to_string
+             ~f:(fun (a, b, c) ->
+               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+             acc);
+        if cols < wid then
+          loop ticks (cols + second_h) ((first_h, second_h, third_h) :: acc) t
         else if cols > wid then (
+          (* print_endline "greater"; *)
           let hd, tl = List.split_n acc 1 in
+          let _, _, third_hd = List.hd_exn (List.rev tl) in
           let line =
-            (if rev then List.map (List.rev ((" ", 1) :: tl)) ~f:fst
-             else List.map ((" ", 1) :: tl) ~f:fst)
+            (if rev then
+               List.map
+                 (List.rev ((" ", 1, third_hd) :: tl))
+                 ~f:(fun (a, _, _) -> a)
+             else List.map ((" ", 1, third_hd) :: tl) ~f:(fun (a, _, _) -> a))
             |> String.concat
           in
 
@@ -141,28 +149,49 @@ let doublewidth chl rev wid cycles print term buflen =
           Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer
             ~dst_pos:0 ~len:llen;
           print buffer 0 llen;
+          Universal.Externs.caml_clock_nanosleep third_hd;
 
           let last = List.last_exn tl in
           let nacc = List.drop_last_exn tl in
+          let _, second_last, _ = last in
           let facc =
-            if snd last = 2 then
-              List.hd_exn hd :: List.rev ((" ", 1) :: List.rev nacc)
+            if second_last = 2 then
+              List.hd_exn hd :: List.rev ((" ", 1, third_h) :: List.rev nacc)
             else List.hd_exn hd :: nacc
           in
-          let ncols = List.fold facc ~init:0 ~f:(fun acm (_, b) -> acm + b) in
-          loop ticks ncols facc lt)
-        else
-          let z =
-            if rev then List.map (List.rev acc) ~f:fst else List.map acc ~f:fst
+          let ncols =
+            List.fold facc ~init:0 ~f:(fun acm (_, b, _) -> acm + b)
           in
-          print_endline @@ String.concat z;
+          loop ticks ncols facc lt)
+        else (* print_endline "equal"; *)
+          let line =
+            (if rev then List.map (List.rev acc) ~f:(fun (a, _, _) -> a)
+             else List.map acc ~f:(fun (a, _, _) -> a))
+            |> String.concat
+          in
+          let _, _, hd_sleep =
+            if rev then List.hd_exn (List.rev acc)
+            else List.hd_exn (List.rev acc)
+          in
+          (* print_endline @@ string_of_int hd_sleep; *)
+          let llen = String.length line in
+          Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer
+            ~dst_pos:0 ~len:llen;
+          print buffer 0 llen;
+          Universal.Externs.caml_clock_nanosleep hd_sleep;
+
           let last = List.last_exn acc in
           let nacc = List.drop_last_exn acc in
+          let _, second_last, _ = last in
           let facc =
-            if snd last = 2 then h :: List.rev ((" ", 1) :: List.rev nacc)
-            else h :: nacc
+            if second_last = 2 then
+              (first_h, second_h, third_h)
+              :: List.rev ((" ", 1, third_h) :: List.rev nacc)
+            else (first_h, second_h, third_h) :: nacc
           in
-          let ncols = List.fold facc ~init:0 ~f:(fun acm (_, b) -> acm + b) in
+          let ncols =
+            List.fold facc ~init:0 ~f:(fun acm (_, b, _) -> acm + b)
+          in
           loop ticks ncols facc t
   in
   loop cycles 0 [] chl

@@ -46,7 +46,7 @@ let run_scroll_chars text
     | Left -> Stdlib.Bytes.cat joined_bytes base
     | Right -> Stdlib.Bytes.cat base joined_bytes
   in
-  let ltfunc pwlist pwlen =
+  let ltfunc pwlist =
     let tot = sleep + rest in
     let open Mode in
     match mode with
@@ -55,7 +55,8 @@ let run_scroll_chars text
             if i = 0 then (p, w, tot) else (p, w, sleep))
     | Reset ->
         List.mapi pwlist ~f:(fun i (p, w) ->
-            if i = 0 || i = pred pwlen then (p, w, tot) else (p, w, sleep))
+            if i = 0 || i = pred (List.length pwlist) then (p, w, tot)
+            else (p, w, sleep))
   in
   let ( loopandprint,
         lenminuswidth,
@@ -121,16 +122,7 @@ let run_scroll_chars text
   end
 
 let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
-    {
-      cycles;
-      direction;
-      endcap_char;
-      endcap_len;
-      rest = _;
-      mode;
-      step;
-      sleep = _;
-    } =
+    { cycles; direction; endcap_char; endcap_len; rest; mode; step; sleep } =
   let joined_bytes, jointextlen, visual_chars = Sb.sbvals text in
   let ecl =
     Int.clamp_exn
@@ -175,7 +167,20 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         in
         let pp = List.append xx (List.rev (snd ff)) in
 
-        Sb.doublewidth pp true width cycles print term jointextlen
+        let lt =
+          let tot = sleep + rest in
+          let open Mode in
+          match mode with
+          | Wrap ->
+              List.mapi pp ~f:(fun i (c, w) ->
+                  if i = 0 then (c, w, tot) else (c, w, sleep))
+          | Reset ->
+              List.mapi pp ~f:(fun i (c, w) ->
+                  if i = 0 || i = pred (List.length pp) then (c, w, tot)
+                  else (c, w, sleep))
+        in
+
+        Sb.doublewidth lt true width cycles print term jointextlen
     | Left, (Char | Word), Reset, Equal -> ()
     | Left, Word, Reset, Greater -> ()
     | Left, Word, Wrap, (Greater | Equal | Less) -> ()
@@ -196,7 +201,21 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
           List.fold xx ~init:(0, []) ~f:(fun acc x ->
               if fst acc >= width then acc else (snd x + fst acc, x :: snd acc))
         in
+
         let pp = List.append xx (List.rev (snd ff)) in
+        let lt =
+          let tot = sleep + rest in
+          let open Mode in
+          match mode with
+          | Wrap ->
+              List.mapi pp ~f:(fun i (c, w) ->
+                  if i = 0 then (c, w, tot) else (c, w, sleep))
+          | Reset ->
+              List.mapi pp ~f:(fun i (c, w) ->
+                  if i = 0 || i = pred (List.length pp) then (c, w, tot)
+                  else (c, w, sleep))
+        in
+
         (* Printf.printf "%s "
           (List.to_string ~f:(fun (a, b) -> a ^ "_" ^ string_of_int b) pp);
         print_endline "";
@@ -204,7 +223,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
           (List.to_string
              ~f:(fun (a, b) -> a ^ "_" ^ string_of_int b)
              (List.append xx xx)); *)
-        Sb.doublewidth pp false width cycles print term jointextlen
+        Sb.doublewidth lt false width cycles print term jointextlen
     | Right, (Char | Word), Reset, Equal -> ()
     | Right, Word, Reset, Greater -> ()
     | Right, Word, Wrap, (Greater | Equal | Less) -> ()
