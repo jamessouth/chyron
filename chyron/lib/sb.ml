@@ -117,31 +117,71 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     takeappend,
     totallen )
 
-let doublewidth chl rev wid cycles print term buflen =
-  let buffer = Bytes.create buflen in
+let doublewidth chl chl2 _rev wid cycles _print term buflen =
+  let _buffer = Bytes.create buflen in
 
-  let rec loop ticks cols acc lt =
+  let rec loop ticks lt =
+    (* Printf.printf "lt: %d %s -- \n" ticks
+      (List.to_string
+         ~f:(fun (a, b, c) -> a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+         lt); *)
     match (ticks < 1, lt) with
     | true, _ -> term ()
-    | false, [] -> loop (pred ticks) 0 [] chl
+    | false, [] -> loop (pred ticks) chl
+    | false, (aa, bb, cc) :: t ->
+        Printf.printf "head: %s %d %d\n" aa bb cc;
+        let ff =
+          List.fold
+            (List.append lt (List.rev chl2))
+            ~init:([], 0)
+            ~f:(fun (chars, cols) (char, wth, _) ->
+              (* Printf.printf " fld: %s %d -- %s  %d\n" char wth
+                ((List.to_string ~f:Fn.id) chars)
+                cols; *)
+              if cols < wid then
+                let tot = wth + cols in
+                if tot > wid then (" " :: chars, succ cols)
+                else (char :: chars, wth + cols)
+              else if cols > wid then (" " :: List.tl_exn chars, cols)
+              else (chars, cols))
+        in
+        Printf.printf "ff: %s \n" (String.concat (fst ff));
+        loop ticks (if bb = 2 then (" ", 1, cc) :: t else t)
+  in
+  loop cycles chl
+
+(* let doublewidth chl rev wid cycles print term buflen =
+  let buffer = Bytes.create buflen in
+  (* let chlfirst, _, _ = List.hd_exn chl in *)
+
+  let rec loop ticks cols acc lt =
+    Printf.printf "acc: %d %s -- \n" cols
+      (List.to_string
+         ~f:(fun (a, b, c) -> a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+         acc);
+
+    Printf.printf "lt: %d %s -- \n" cols
+      (List.to_string
+         ~f:(fun (a, b, c) -> a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+         lt);
+    match (ticks < 1, lt) with
+    | true, _ -> term ()
+    | false, [] ->
+        loop (pred ticks) 0 [] chl
+        (* let acclast, xxxc, _ = List.last_exn acc in
+        if String.( = ) acclast chlfirst then loop (pred ticks) 0 [] chl
+        else loop (pred ticks) xxxc [ List.last_exn acc ] chl *)
     | false, (first_h, second_h, third_h) :: t ->
-        Printf.printf "%d %s -- " cols
-          (List.to_string
-             ~f:(fun (a, b, c) ->
-               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
-             acc);
+        Printf.printf "h: %s %d %d\n" first_h second_h third_h;
         if cols < wid then
           loop ticks (cols + second_h) ((first_h, second_h, third_h) :: acc) t
         else if cols > wid then (
-          (* print_endline "greater"; *)
           let hd, tl = List.split_n acc 1 in
-          let _, _, third_hd = List.hd_exn (List.rev tl) in
+          (* let _, _, third_hd = List.last_exn tl in *)
           let line =
             (if rev then
-               List.map
-                 (List.rev ((" ", 1, third_hd) :: tl))
-                 ~f:(fun (a, _, _) -> a)
-             else List.map ((" ", 1, third_hd) :: tl) ~f:(fun (a, _, _) -> a))
+               List.map (List.rev ((" ", 1, 1) :: tl)) ~f:(fun (a, _, _) -> a)
+             else List.map ((" ", 1, 1) :: tl) ~f:(fun (a, _, _) -> a))
             |> String.concat
           in
 
@@ -149,12 +189,13 @@ let doublewidth chl rev wid cycles print term buflen =
           Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer
             ~dst_pos:0 ~len:llen;
           print buffer 0 llen;
-          Universal.Externs.caml_clock_nanosleep third_hd;
 
+          (* Universal.Externs.caml_clock_nanosleep third_hd; *)
           let last = List.last_exn tl in
           let nacc = List.drop_last_exn tl in
           let _, second_last, _ = last in
           let facc =
+            print_endline "wide";
             if second_last = 2 then
               List.hd_exn hd :: List.rev ((" ", 1, third_h) :: List.rev nacc)
             else List.hd_exn hd :: nacc
@@ -163,27 +204,24 @@ let doublewidth chl rev wid cycles print term buflen =
             List.fold facc ~init:0 ~f:(fun acm (_, b, _) -> acm + b)
           in
           loop ticks ncols facc lt)
-        else (* print_endline "equal"; *)
+        else
           let line =
             (if rev then List.map (List.rev acc) ~f:(fun (a, _, _) -> a)
              else List.map acc ~f:(fun (a, _, _) -> a))
             |> String.concat
           in
-          let _, _, hd_sleep =
-            if rev then List.hd_exn (List.rev acc)
-            else List.hd_exn (List.rev acc)
-          in
-          (* print_endline @@ string_of_int hd_sleep; *)
+          (* let _, _, hd_sleep = List.last_exn acc in *)
           let llen = String.length line in
           Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer
             ~dst_pos:0 ~len:llen;
           print buffer 0 llen;
-          Universal.Externs.caml_clock_nanosleep hd_sleep;
 
+          (* Universal.Externs.caml_clock_nanosleep hd_sleep; *)
           let last = List.last_exn acc in
           let nacc = List.drop_last_exn acc in
           let _, second_last, _ = last in
           let facc =
+            print_endline "equal";
             if second_last = 2 then
               (first_h, second_h, third_h)
               :: List.rev ((" ", 1, third_h) :: List.rev nacc)
@@ -194,4 +232,4 @@ let doublewidth chl rev wid cycles print term buflen =
           in
           loop ticks ncols facc t
   in
-  loop cycles 0 [] chl
+  loop cycles 0 [] chl *)

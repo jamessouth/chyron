@@ -180,7 +180,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
                   else (c, w, sleep))
         in
 
-        Sb.doublewidth lt true width cycles print term jointextlen
+        Sb.doublewidth lt lt true width cycles print term jointextlen
     | Left, (Char | Word), Reset, Equal -> ()
     | Left, Word, Reset, Greater -> ()
     | Left, Word, Wrap, (Greater | Equal | Less) -> ()
@@ -197,33 +197,35 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
               let c = match b with `W | `F -> 2 | _ -> 1 in
               (x, c))
         in
+
+        (* let collen = List.fold xx ~init:0 ~f:(fun acc (_, b) -> b + acc) in
+        print_endline @@ string_of_int collen; *)
         let ff =
           List.fold xx ~init:(0, []) ~f:(fun acc x ->
               if fst acc >= width then acc else (snd x + fst acc, x :: snd acc))
         in
 
-        let pp = List.append xx (List.rev (snd ff)) in
+        (* let pp = List.append xx (List.rev (snd ff)) in *)
         let lt =
           let tot = sleep + rest in
           let open Mode in
           match mode with
           | Wrap ->
-              List.mapi pp ~f:(fun i (c, w) ->
+              List.mapi xx ~f:(fun i (c, w) ->
                   if i = 0 then (c, w, tot) else (c, w, sleep))
           | Reset ->
-              List.mapi pp ~f:(fun i (c, w) ->
-                  if i = 0 || i = pred (List.length pp) then (c, w, tot)
+              List.mapi xx ~f:(fun i (c, w) ->
+                  if i = 0 || i = pred (List.length xx) then (c, w, tot)
                   else (c, w, sleep))
         in
+        let lt2 = List.map (snd ff) ~f:(fun (c, w) -> (c, w, sleep)) in
 
-        (* Printf.printf "%s "
-          (List.to_string ~f:(fun (a, b) -> a ^ "_" ^ string_of_int b) pp);
-        print_endline "";
-        Printf.printf "%s "
-          (List.to_string
-             ~f:(fun (a, b) -> a ^ "_" ^ string_of_int b)
-             (List.append xx xx)); *)
-        Sb.doublewidth lt false width cycles print term jointextlen
+        Printf.printf "%s \n"
+          (List.to_string ~f:(fun (a, b) -> a ^ "_" ^ string_of_int b) xx);
+        Printf.printf "%s \n"
+          (List.to_string ~f:(fun (a, b) -> a ^ "_" ^ string_of_int b) (snd ff));
+
+        Sb.doublewidth lt lt2 false width cycles print term jointextlen
     | Right, (Char | Word), Reset, Equal -> ()
     | Right, Word, Reset, Greater -> ()
     | Right, Word, Wrap, (Greater | Equal | Less) -> ()
