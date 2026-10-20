@@ -198,14 +198,11 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
               (x, c))
         in
 
-        (* let collen = List.fold xx ~init:0 ~f:(fun acc (_, b) -> b + acc) in
-        print_endline @@ string_of_int collen; *)
         let ff =
           List.fold xx ~init:(0, []) ~f:(fun acc x ->
               if fst acc >= width then acc else (snd x + fst acc, x :: snd acc))
         in
 
-        (* let pp = List.append xx (List.rev (snd ff)) in *)
         let lt =
           let tot = sleep + rest in
           let open Mode in
