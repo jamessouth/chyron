@@ -117,7 +117,7 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     takeappend,
     totallen )
 
-let doublewidth chl chl2 _rev wid cycles print term buflen =
+let doublewidth chl chl2 func wid cycles print term buflen =
   let buffer = Bytes.create buflen in
 
   let rec loop ticks lt =
@@ -128,12 +128,10 @@ let doublewidth chl chl2 _rev wid cycles print term buflen =
     match (ticks < 1, lt) with
     | true, _ -> term ()
     | false, [] -> loop (pred ticks) chl
-    | false, (_aa, bb, cc) :: t ->
+    | false, (_char, charwth, slp) :: t ->
         (* Printf.printf "head: %s %d %d\n" aa bb cc; *)
-        let ff =
-          List.fold_until
-            (List.append lt (List.rev chl2))
-            ~init:([], 0)
+        let letters, _ =
+          List.fold_until (List.append lt chl2) ~init:([], 0)
             ~f:(fun (chars, cols) (char, wth, _) ->
               let open Continue_or_stop in
               Printf.printf " fld: %s %d -- %s  %d\n" char wth
@@ -152,14 +150,16 @@ let doublewidth chl chl2 _rev wid cycles print term buflen =
                 Stop (chars, cols))
             ~finish:(fun x -> x)
         in
-        let line = String.concat (fst ff) in
+        let line = String.concat @@ func letters in
 
         let llen = String.length line in
         Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer
           ~dst_pos:0 ~len:llen;
         print buffer 0 llen;
-        Universal.Externs.caml_clock_nanosleep cc;
+        Universal.Externs.caml_clock_nanosleep slp;
 
-        loop ticks (if bb = 2 then (" ", 1, cc) :: t else t)
+        let nlist = if charwth = 2 then (" ", 1, slp) :: t else t in
+
+        loop ticks nlist
   in
   loop cycles chl

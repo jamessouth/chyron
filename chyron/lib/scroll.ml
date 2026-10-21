@@ -142,6 +142,13 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
   let print, term =
     printandterm { prefix; suffix; terminator; visual; width }
   in
+  let eaw ch =
+    let uchar =
+      String.Utf8.get (String.Utf8.of_string_unchecked ch) ~byte_pos:0
+    in
+    let eawd = Uucp.Break.east_asian_width uchar in
+    match eawd with `W | `F -> 2 | _ -> 1
+  in
   begin
     let open Direction in
     let open Sb.Step in
@@ -152,35 +159,43 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
     | Left, Char, Reset, Greater -> ()
     | Left, Char, Wrap, (Greater | Equal | Less) ->
         print_endline "here 2";
-        let xx =
-          List.map revcharlist ~f:(fun x ->
-              let a =
-                String.Utf8.get (String.Utf8.of_string_unchecked x) ~byte_pos:0
-              in
-              let b = Uucp.Break.east_asian_width a in
-              let c = match b with `W | `F -> 2 | _ -> 1 in
-              (x, c))
-        in
-        let ff =
-          List.fold xx ~init:(0, []) ~f:(fun acc x ->
-              if fst acc >= width then acc else (snd x + fst acc, x :: snd acc))
-        in
-        let pp = List.append xx (List.rev (snd ff)) in
 
-        let lt =
+        let finallist =
           let tot = sleep + rest in
           let open Mode in
           match mode with
           | Wrap ->
-              List.mapi pp ~f:(fun i (c, w) ->
-                  if i = 0 then (c, w, tot) else (c, w, sleep))
+              List.mapi revcharlist ~f:(fun i ch ->
+                  let wd = eaw ch in
+                  if i = 0 then (ch, wd, tot) else (ch, wd, sleep))
           | Reset ->
-              List.mapi pp ~f:(fun i (c, w) ->
-                  if i = 0 || i = pred (List.length pp) then (c, w, tot)
-                  else (c, w, sleep))
+              List.mapi revcharlist ~f:(fun i ch ->
+                  let wd = eaw ch in
+                  if i = 0 || i = pred (List.length revcharlist) then
+                    (ch, wd, tot)
+                  else (ch, wd, sleep))
         in
 
-        Sb.doublewidth lt lt true width cycles print term jointextlen
+        let extends, _ =
+          List.fold finallist ~init:([], 0)
+            ~f:(fun (lt, count) (char, wth, slp) ->
+              if count >= width then (lt, count)
+              else ((char, wth, slp) :: lt, wth + count))
+        in
+
+        Printf.printf "%s \n"
+          (List.to_string
+             ~f:(fun (a, b, c) ->
+               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+             finallist);
+        Printf.printf "%s \n"
+          (List.to_string
+             ~f:(fun (a, b, c) ->
+               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+             extends);
+
+        Sb.doublewidth finallist (List.rev extends) List.rev width cycles print
+          term jointextlen
     | Left, (Char | Word), Reset, Equal -> ()
     | Left, Word, Reset, Greater -> ()
     | Left, Word, Wrap, (Greater | Equal | Less) -> ()
@@ -188,41 +203,42 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
     | Right, Char, Reset, Greater -> ()
     | Right, Char, Wrap, (Greater | Equal | Less) ->
         print_endline "here 1";
-        let xx =
-          List.map charlist ~f:(fun x ->
-              let a =
-                String.Utf8.get (String.Utf8.of_string_unchecked x) ~byte_pos:0
-              in
-              let b = Uucp.Break.east_asian_width a in
-              let c = match b with `W | `F -> 2 | _ -> 1 in
-              (x, c))
-        in
 
-        let ff =
-          List.fold xx ~init:(0, []) ~f:(fun acc x ->
-              if fst acc >= width then acc else (snd x + fst acc, x :: snd acc))
-        in
-
-        let lt =
+        let finallist =
           let tot = sleep + rest in
           let open Mode in
           match mode with
           | Wrap ->
-              List.mapi xx ~f:(fun i (c, w) ->
-                  if i = 0 then (c, w, tot) else (c, w, sleep))
+              List.mapi charlist ~f:(fun i ch ->
+                  let wd = eaw ch in
+                  if i = 0 then (ch, wd, tot) else (ch, wd, sleep))
           | Reset ->
-              List.mapi xx ~f:(fun i (c, w) ->
-                  if i = 0 || i = pred (List.length xx) then (c, w, tot)
-                  else (c, w, sleep))
+              List.mapi charlist ~f:(fun i ch ->
+                  let wd = eaw ch in
+                  if i = 0 || i = pred (List.length charlist) then (ch, wd, tot)
+                  else (ch, wd, sleep))
         in
-        let lt2 = List.map (snd ff) ~f:(fun (c, w) -> (c, w, sleep)) in
+
+        let extends, _ =
+          List.fold finallist ~init:([], 0)
+            ~f:(fun (lt, count) (char, wth, slp) ->
+              if count >= width then (lt, count)
+              else ((char, wth, slp) :: lt, wth + count))
+        in
 
         Printf.printf "%s \n"
-          (List.to_string ~f:(fun (a, b) -> a ^ "_" ^ string_of_int b) xx);
+          (List.to_string
+             ~f:(fun (a, b, c) ->
+               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+             finallist);
         Printf.printf "%s \n"
-          (List.to_string ~f:(fun (a, b) -> a ^ "_" ^ string_of_int b) (snd ff));
+          (List.to_string
+             ~f:(fun (a, b, c) ->
+               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+             extends);
 
-        Sb.doublewidth lt lt2 false width cycles print term jointextlen
+        Sb.doublewidth finallist (List.rev extends) Fn.id width cycles print
+          term jointextlen
     | Right, (Char | Word), Reset, Equal -> ()
     | Right, Word, Reset, Greater -> ()
     | Right, Word, Wrap, (Greater | Equal | Less) -> ()
