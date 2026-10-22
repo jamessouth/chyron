@@ -132,9 +132,11 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
   let ecp = Bytes.make ecl endcap_char in
   let finaltext =
     let open Direction in
-    match direction with
-    | Left -> Stdlib.Bytes.cat joined_bytes ecp
-    | Right -> Stdlib.Bytes.cat ecp joined_bytes
+    let open Mode in
+    match (direction, mode) with
+    | Left, Wrap -> Stdlib.Bytes.cat joined_bytes ecp
+    | Right, Wrap -> Stdlib.Bytes.cat ecp joined_bytes
+    | _, Reset -> joined_bytes
   in
   let charlist = Universal.uc_charlist (Bytes.to_string finaltext) in
   let revcharlist = List.rev charlist in
@@ -156,24 +158,60 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
     match
       (direction, step, mode, Ordering.of_int (compare visual_chars width))
     with
-    | Left, Char, Reset, Greater -> ()
+    | Left, Char, Reset, Greater ->
+        print_endline "here 3";
+
+        let prelim =
+          let tot = sleep + rest in
+
+          List.mapi charlist ~f:(fun i ch ->
+              let wd = eaw ch in
+              if i = 0 || i = pred (List.length charlist) then (ch, wd, tot)
+              else (ch, wd, sleep))
+        in
+
+        let finallist, extends, _ =
+          List.fold prelim ~init:([], [], 0)
+            ~f:(fun (lt, ex, count) (char, wth, slp) ->
+              let tot = wth + count in
+
+              if tot >= width then ((char, wth, slp) :: lt, ex, count)
+              else (lt, (char, wth, slp) :: ex, tot))
+        in
+
+        (* let extends, _ =
+          List.fold prelim ~init:([], 0) ~f:(fun (lt, count) (char, wth, slp) ->
+              if count >= width then (lt, count)
+              else ((char, wth, slp) :: lt, wth + count))
+        in *)
+        Printf.printf "%s \n"
+          (List.to_string
+             ~f:(fun (a, b, c) ->
+               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+             finallist);
+        Printf.printf "%s \n"
+          (List.to_string
+             ~f:(fun (a, b, c) ->
+               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+             extends);
+
+        Sb.doublewidth finallist extends List.rev width cycles print term
+          jointextlen
     | Left, Char, Wrap, (Greater | Equal | Less) ->
         print_endline "here 2";
 
         let finallist =
           let tot = sleep + rest in
-          let open Mode in
-          match mode with
-          | Wrap ->
-              List.mapi revcharlist ~f:(fun i ch ->
-                  let wd = eaw ch in
-                  if i = 0 then (ch, wd, tot) else (ch, wd, sleep))
-          | Reset ->
+
+          List.mapi revcharlist ~f:(fun i ch ->
+              let wd = eaw ch in
+              if i = 0 then (ch, wd, tot) else (ch, wd, sleep))
+          (* | Reset ->
               List.mapi revcharlist ~f:(fun i ch ->
                   let wd = eaw ch in
                   if i = 0 || i = pred (List.length revcharlist) then
                     (ch, wd, tot)
-                  else (ch, wd, sleep))
+                  else (ch, wd, sleep)) *)
         in
 
         let extends, _ =
@@ -196,10 +234,10 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
 
         Sb.doublewidth finallist (List.rev extends) List.rev width cycles print
           term jointextlen
-    | Left, (Char | Word), Reset, Equal -> ()
+    | Left, (Char | Word), Reset, Equal -> print_endline "lc/wre"
     | Left, Word, Reset, Greater -> ()
     | Left, Word, Wrap, (Greater | Equal | Less) -> ()
-    | (Left | Right), (Char | Word), Reset, Less -> ()
+    | (Left | Right), (Char | Word), Reset, Less -> print_endline "l/rc/wrl"
     | Right, Char, Reset, Greater -> ()
     | Right, Char, Wrap, (Greater | Equal | Less) ->
         print_endline "here 1";
