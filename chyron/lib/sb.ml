@@ -9,11 +9,16 @@ let step_arg =
     ~case_sensitive:false ~list_values_in_help:true
     (module Step : Command.Enumerable_sexpable with type t = Step.t)
 
-let sbvals text =
+let sbvals text visual =
   let joined_text = String.concat ~sep:" " text in
   ( Bytes.of_string joined_text,
     String.length joined_text,
-    List.length (Universal.uc_charlist joined_text) )
+    let gclist = Universal.uc_charlist joined_text in
+    let open Universal.Visual in
+    match visual with
+    | Chars -> List.length gclist
+    | Columns ->
+        List.fold gclist ~init:0 ~f:(fun acc x -> acc + Universal.eaw x) )
 
 let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     cycles =

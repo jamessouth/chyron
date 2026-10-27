@@ -71,3 +71,10 @@ let printandterm { prefix; suffix; terminator; _ } =
 
 let uc_charlist str =
   Uuseg_string.fold_utf_8 `Grapheme_cluster (fun acc char -> char :: acc) [] str
+
+let eaw ch =
+  let uchar =
+    String.Utf8.get (String.Utf8.of_string_unchecked ch) ~byte_pos:0
+  in
+  let eawd = Uucp.Break.east_asian_width uchar in
+  match eawd with `W | `F -> 2 | _ -> 1

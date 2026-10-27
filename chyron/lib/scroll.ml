@@ -32,7 +32,7 @@ type t = {
 let run_scroll_chars text
     Universal.{ prefix; suffix; terminator; visual; width }
     { cycles; direction; endcap_char; endcap_len; rest; mode; step; sleep } =
-  let joined_bytes, jointextlen, visual_chars = Sb.sbvals text in
+  let joined_bytes, jointextlen, visual_chars = Sb.sbvals text visual in
   let ecl =
     Int.clamp_exn
       (Int.max endcap_len (width - visual_chars))
@@ -123,10 +123,11 @@ let run_scroll_chars text
 
 let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
     { cycles; direction; endcap_char; endcap_len; rest; mode; step; sleep } =
-  let joined_bytes, jointextlen, visual_chars = Sb.sbvals text in
+  let joined_bytes, jointextlen, visual_cols = Sb.sbvals text visual in
+  print_endline @@ string_of_int visual_cols;
   let ecl =
     Int.clamp_exn
-      (Int.max endcap_len (width - visual_chars))
+      (Int.max endcap_len (width - visual_cols))
       ~min:1 ~max:(pred width)
   in
   let ecp = Bytes.make ecl endcap_char in
@@ -144,19 +145,12 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
   let print, term =
     printandterm { prefix; suffix; terminator; visual; width }
   in
-  let eaw ch =
-    let uchar =
-      String.Utf8.get (String.Utf8.of_string_unchecked ch) ~byte_pos:0
-    in
-    let eawd = Uucp.Break.east_asian_width uchar in
-    match eawd with `W | `F -> 2 | _ -> 1
-  in
   begin
     let open Direction in
     let open Sb.Step in
     let open Mode in
     match
-      (direction, step, mode, Ordering.of_int (compare visual_chars width))
+      (direction, step, mode, Ordering.of_int (compare visual_cols width))
     with
     | Left, Char, Reset, Greater ->
         print_endline "here 3";
@@ -165,7 +159,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
           let tot = sleep + rest in
 
           List.mapi charlist ~f:(fun i ch ->
-              let wd = eaw ch in
+              let wd = Universal.eaw ch in
               if i = 0 || i = pred (List.length charlist) then (ch, wd, tot)
               else (ch, wd, sleep))
         in
@@ -204,7 +198,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
           let tot = sleep + rest in
 
           List.mapi revcharlist ~f:(fun i ch ->
-              let wd = eaw ch in
+              let wd = Universal.eaw ch in
               if i = 0 then (ch, wd, tot) else (ch, wd, sleep))
           (* | Reset ->
               List.mapi revcharlist ~f:(fun i ch ->
@@ -235,8 +229,8 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         Sb.doublewidth finallist (List.rev extends) List.rev width cycles print
           term jointextlen
     | Left, (Char | Word), Reset, Equal -> print_endline "lc/wre"
-    | Left, Word, Reset, Greater -> ()
-    | Left, Word, Wrap, (Greater | Equal | Less) -> ()
+    | Left, Word, Reset, Greater -> print_endline "aa"
+    | Left, Word, Wrap, (Greater | Equal | Less) -> print_endline "bb"
     | (Left | Right), (Char | Word), Reset, Less -> print_endline "l/rc/wrl"
     | Right, Char, Reset, Greater ->
         print_endline "here 4";
@@ -245,7 +239,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
           let tot = sleep + rest in
 
           List.mapi revcharlist ~f:(fun i ch ->
-              let wd = eaw ch in
+              let wd = Universal.eaw ch in
               if i = 0 || i = pred (List.length revcharlist) then (ch, wd, tot)
               else (ch, wd, sleep))
         in
@@ -282,17 +276,17 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
 
         let finallist =
           let tot = sleep + rest in
-          let open Mode in
-          match mode with
-          | Wrap ->
+          (* let open Mode in *)
+          (* match mode with
+          | Wrap -> *)
+          List.mapi charlist ~f:(fun i ch ->
+              let wd = Universal.eaw ch in
+              if i = 0 then (ch, wd, tot) else (ch, wd, sleep))
+          (* | Reset ->
               List.mapi charlist ~f:(fun i ch ->
-                  let wd = eaw ch in
-                  if i = 0 then (ch, wd, tot) else (ch, wd, sleep))
-          | Reset ->
-              List.mapi charlist ~f:(fun i ch ->
-                  let wd = eaw ch in
+                  let wd = Universal.eaw ch in
                   if i = 0 || i = pred (List.length charlist) then (ch, wd, tot)
-                  else (ch, wd, sleep))
+                  else (ch, wd, sleep)) *)
         in
 
         let extends, _ =
@@ -315,7 +309,45 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
 
         Sb.doublewidth finallist (List.rev extends) Fn.id width cycles print
           term jointextlen
-    | Right, (Char | Word), Reset, Equal -> ()
-    | Right, Word, Reset, Greater -> ()
-    | Right, Word, Wrap, (Greater | Equal | Less) -> ()
+    | Right, (Char | Word), Reset, Equal ->
+        print_endline "cc";
+
+        let prelim =
+          let tot = sleep + rest in
+
+          List.mapi revcharlist ~f:(fun i ch ->
+              let wd = Universal.eaw ch in
+              if i = 0 || i = pred (List.length revcharlist) then (ch, wd, tot)
+              else (ch, wd, sleep))
+        in
+
+        let finallist, extends, _ =
+          List.fold prelim ~init:([], [], 0)
+            ~f:(fun (lt, ex, count) (char, wth, slp) ->
+              let tot = wth + count in
+
+              if tot >= width then ((char, wth, slp) :: lt, ex, count)
+              else (lt, (char, wth, slp) :: ex, tot))
+        in
+
+        (* let extends, _ =
+          List.fold prelim ~init:([], 0) ~f:(fun (lt, count) (char, wth, slp) ->
+              if count >= width then (lt, count)
+              else ((char, wth, slp) :: lt, wth + count))
+        in *)
+        Printf.printf "%s \n"
+          (List.to_string
+             ~f:(fun (a, b, c) ->
+               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+             finallist);
+        Printf.printf "%s \n"
+          (List.to_string
+             ~f:(fun (a, b, c) ->
+               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+             extends);
+
+        Sb.doublewidth finallist extends Fn.id width cycles print term
+          jointextlen
+    | Right, Word, Reset, Greater -> print_endline "dd"
+    | Right, Word, Wrap, (Greater | Equal | Less) -> print_endline "ee"
   end

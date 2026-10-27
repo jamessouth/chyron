@@ -10,7 +10,7 @@ type t = {
 
 let run_bounce text Universal.{ prefix; suffix; terminator; visual; width }
     { cycles; endcap_char; rest; step; sleep } =
-  let joined_bytes, jointextlen, visual_chars = Sb.sbvals text in
+  let joined_bytes, jointextlen, visual_chars = Sb.sbvals text visual in
   let ecl = Int.max 0 (width - visual_chars) in
   let ecp = Bytes.make ecl endcap_char in
   let finaltext = Stdlib.Bytes.cat (Stdlib.Bytes.cat ecp joined_bytes) ecp in
