@@ -92,24 +92,24 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
   in
   let brword =
    fun rev ->
-    print_string "rw ";
+    print_string "rw \n";
     ucinds rev charlist wordsplitfn
       (fun str bts _ acc -> (String.length str - bts, bts) :: acc)
       width
   in
   let blchar =
    fun rev ->
-    print_string "lc ";
+    print_string "lc \n";
     ucinds rev revcharlist (fun _ -> 1) accmfn width
   in
   let blword =
    fun rev ->
-    print_string "lw ";
+    print_string "lw \n";
     ucinds rev revcharlist wordsplitfn accmfn width
   in
   let rchar =
    fun rev ->
-    print_string "rc ";
+    print_string "rc \n";
     ucinds rev revcharlist (fun _ -> 1) accmfn width
   in
   ( loopandprint,
