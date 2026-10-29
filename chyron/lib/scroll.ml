@@ -92,15 +92,6 @@ let run_scroll_chars text
           true |> blword
           |> List.split_while ~f:(fun (a, b) -> a + b < halflen - ecl)
         in
-        Printf.printf "%s \n"
-          (List.to_string
-             ~f:(fun (a, b) -> string_of_int a ^ "_" ^ string_of_int b)
-             l);
-        Printf.printf "%s \n"
-          (List.to_string
-             ~f:(fun (a, b) -> string_of_int a ^ "_" ^ string_of_int b)
-             r);
-
         takeappend r l |> loopandprint
       end
     | Left, Word, Wrap, (Greater | Equal | Less) ->
@@ -143,6 +134,12 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
   let open Universal in
   let print, term =
     printandterm { prefix; suffix; terminator; visual; width }
+  in
+  let fchar cw sl lt = if cw = 2 then (" ", 1, sl) :: lt else lt in
+  let fword _ _ lt =
+    List.drop
+      (lt |> List.drop_while ~f:(fun (c, _, _) -> String.( <> ) c " "))
+      1
   in
   begin
     let open Direction in
@@ -190,7 +187,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
              extends);
 
         Sb.doublewidth finallist extends List.rev width cycles print term
-          jointextlen
+          jointextlen fchar
     | Left, Char, Wrap, (Greater | Equal | Less) ->
         print_endline "here 2";
         let charlist =
@@ -231,7 +228,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
              extends);
 
         Sb.doublewidth finallist (List.rev extends) List.rev width cycles print
-          term jointextlen
+          term jointextlen fchar
     | Left, (Char | Word), Reset, Equal ->
         print_endline "lc/wre";
         let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
@@ -271,8 +268,46 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
              extends);
 
         Sb.doublewidth finallist extends Fn.id width cycles print term
-          jointextlen
-    | Left, Word, Reset, Greater -> print_endline "aa"
+          jointextlen fchar
+    | Left, Word, Reset, Greater ->
+        print_endline "aa";
+        let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
+
+        let prelim =
+          let tot = sleep + rest in
+
+          List.mapi charlist ~f:(fun i ch ->
+              let wd = Universal.eaw ch in
+              if i = 0 || i = pred (List.length charlist) then (ch, wd, tot)
+              else (ch, wd, sleep))
+        in
+
+        (* let finallist, extends, _ =
+          List.fold prelim ~init:([], [], 0)
+            ~f:(fun (lt, ex, count) (char, wth, slp) ->
+              let tot = wth + count in
+
+              if tot >= width then ((char, wth, slp) :: lt, ex, count)
+              else (lt, (char, wth, slp) :: ex, tot))
+        in *)
+
+        (* let extends, _ =
+          List.fold prelim ~init:([], 0) ~f:(fun (lt, count) (char, wth, slp) ->
+              if count >= width then (lt, count)
+              else ((char, wth, slp) :: lt, wth + count))
+        in *)
+        (* Printf.printf "%s \n"
+          (List.to_string
+             ~f:(fun (a, b, c) ->
+               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+             finallist);
+        Printf.printf "%s \n"
+          (List.to_string
+             ~f:(fun (a, b, c) ->
+               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+             extends); *)
+        Sb.doublewidth (List.rev prelim) [] List.rev width cycles print term
+          jointextlen fword
     | Left, Word, Wrap, (Greater | Equal | Less) -> print_endline "bb"
     | Left, (Char | Word), Reset, Less ->
         print_endline "l/rc/wrl";
@@ -316,7 +351,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
              extends);
 
         Sb.doublewidth finallist extends Fn.id width cycles print term
-          jointextlen
+          jointextlen fchar
     | Right, (Char | Word), Reset, Less ->
         print_endline "l/rc/wrl";
         let charlist =
@@ -359,7 +394,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
              extends);
 
         Sb.doublewidth finallist extends Fn.id width cycles print term
-          jointextlen
+          jointextlen fchar
     | Right, Char, Reset, Greater ->
         print_endline "here 4";
         let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
@@ -399,7 +434,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
              extends);
 
         Sb.doublewidth finallist extends Fn.id width cycles print term
-          jointextlen
+          jointextlen fchar
     | Right, Char, Wrap, (Greater | Equal | Less) ->
         print_endline "here 1";
         let charlist =
@@ -441,7 +476,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
              extends);
 
         Sb.doublewidth finallist (List.rev extends) Fn.id width cycles print
-          term jointextlen
+          term jointextlen fchar
     | Right, (Char | Word), Reset, Equal ->
         print_endline "cc";
         let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
@@ -481,7 +516,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
              extends);
 
         Sb.doublewidth finallist extends Fn.id width cycles print term
-          jointextlen
+          jointextlen fchar
     | Right, Word, Reset, Greater -> print_endline "dd"
     | Right, Word, Wrap, (Greater | Equal | Less) -> print_endline "ee"
   end

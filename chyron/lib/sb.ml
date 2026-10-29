@@ -122,7 +122,7 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     takeappend,
     totallen )
 
-let doublewidth chl chl2 func wid cycles print term buflen =
+let doublewidth chl chl2 func wid cycles print term buflen func2 =
   let buffer = Bytes.create buflen in
 
   let rec loop ticks lt =
@@ -134,16 +134,16 @@ let doublewidth chl chl2 func wid cycles print term buflen =
     | true, _ -> term ()
     | false, [] -> loop (pred ticks) chl
     | false, (_char, charwth, slp) :: t ->
-        (* Printf.printf "head: %s %d %d\n" aa bb cc; *)
+        (* Printf.printf "head: %s %d %d\n" char charwth slp; *)
         let letters, _ =
           List.fold_until (List.append lt chl2) ~init:([], 0)
             ~f:(fun (chars, cols) (char, wth, _) ->
               let open Continue_or_stop in
-              Printf.printf " fld: %s %d -- %s  %d\n" char wth
+              (* Printf.printf " fld: %s %d -- %s  %d\n" char wth
                 ((List.to_string ~f:Fn.id) chars)
-                cols;
+                cols; *)
               if cols < wid then
-                let _ = Printf.printf "here " in
+                (* let _ = Printf.printf "here " in *)
                 let tot = wth + cols in
                 if tot > wid then Stop (" " :: chars, succ cols)
                 else Continue (char :: chars, wth + cols)
@@ -163,7 +163,8 @@ let doublewidth chl chl2 func wid cycles print term buflen =
         print buffer 0 llen;
         Universal.Externs.caml_clock_nanosleep slp;
 
-        let nlist = if charwth = 2 then (" ", 1, slp) :: t else t in
+        (* let nlist = if charwth = 2 then (" ", 1, slp) :: t else t in *)
+        let nlist = func2 charwth slp t in
 
         loop ticks nlist
   in
