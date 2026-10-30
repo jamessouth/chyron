@@ -149,6 +149,13 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         if i = 0 || i = ind then (ch, wd, tot) else (ch, wd, sleep))
   in
 
+  let getfe pm =
+    List.fold pm ~init:([], [], 0) ~f:(fun (lt, ex, count) (char, wth, slp) ->
+        let tot = wth + count in
+        if tot >= width then ((char, wth, slp) :: lt, ex, count)
+        else (lt, (char, wth, slp) :: ex, tot))
+  in
+
   begin
     let open Direction in
     let open Sb.Step in
@@ -160,13 +167,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         print_endline "here 3";
         let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
         let prelim = getprelim charlist (pred (List.length charlist)) in
-        let finallist, extends, _ =
-          List.fold prelim ~init:([], [], 0)
-            ~f:(fun (lt, ex, count) (char, wth, slp) ->
-              let tot = wth + count in
-              if tot >= width then ((char, wth, slp) :: lt, ex, count)
-              else (lt, (char, wth, slp) :: ex, tot))
-        in
+        let finallist, extends, _ = getfe prelim in
         Sb.doublewidth finallist extends List.rev width cycles print term
           jointextlen fchar
     | Left, Char, Wrap, (Greater | Equal | Less) ->
@@ -190,13 +191,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         let prelim =
           getprelim (List.rev charlist) (pred (List.length charlist))
         in
-        let finallist, extends, _ =
-          List.fold prelim ~init:([], [], 0)
-            ~f:(fun (lt, ex, count) (char, wth, slp) ->
-              let tot = wth + count in
-              if tot >= width then ((char, wth, slp) :: lt, ex, count)
-              else (lt, (char, wth, slp) :: ex, tot))
-        in
+        let finallist, extends, _ = getfe prelim in
         Sb.doublewidth finallist extends Fn.id width cycles print term
           jointextlen fchar
     | Left, Word, Reset, Greater ->
@@ -223,13 +218,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         let prelim =
           getprelim (List.rev charlist) (pred (List.length charlist))
         in
-        let finallist, extends, _ =
-          List.fold prelim ~init:([], [], 0)
-            ~f:(fun (lt, ex, count) (char, wth, slp) ->
-              let tot = wth + count in
-              if tot >= width then ((char, wth, slp) :: lt, ex, count)
-              else (lt, (char, wth, slp) :: ex, tot))
-        in
+        let finallist, extends, _ = getfe prelim in
         Sb.doublewidth finallist extends Fn.id width cycles print term
           jointextlen fchar
     | Right, (Char | Word), Reset, Less ->
@@ -241,13 +230,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         let prelim =
           getprelim (List.rev charlist) (pred (List.length charlist))
         in
-        let finallist, extends, _ =
-          List.fold prelim ~init:([], [], 0)
-            ~f:(fun (lt, ex, count) (char, wth, slp) ->
-              let tot = wth + count in
-              if tot >= width then ((char, wth, slp) :: lt, ex, count)
-              else (lt, (char, wth, slp) :: ex, tot))
-        in
+        let finallist, extends, _ = getfe prelim in
         Sb.doublewidth finallist extends Fn.id width cycles print term
           jointextlen fchar
     | Right, Char, Reset, Greater ->
@@ -256,13 +239,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         let prelim =
           getprelim (List.rev charlist) (pred (List.length charlist))
         in
-        let finallist, extends, _ =
-          List.fold prelim ~init:([], [], 0)
-            ~f:(fun (lt, ex, count) (char, wth, slp) ->
-              let tot = wth + count in
-              if tot >= width then ((char, wth, slp) :: lt, ex, count)
-              else (lt, (char, wth, slp) :: ex, tot))
-        in
+        let finallist, extends, _ = getfe prelim in
         Sb.doublewidth finallist extends Fn.id width cycles print term
           jointextlen fchar
     | Right, Char, Wrap, (Greater | Equal | Less) ->
@@ -286,13 +263,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         let prelim =
           getprelim (List.rev charlist) (pred (List.length charlist))
         in
-        let finallist, extends, _ =
-          List.fold prelim ~init:([], [], 0)
-            ~f:(fun (lt, ex, count) (char, wth, slp) ->
-              let tot = wth + count in
-              if tot >= width then ((char, wth, slp) :: lt, ex, count)
-              else (lt, (char, wth, slp) :: ex, tot))
-        in
+        let finallist, extends, _ = getfe prelim in
         Sb.doublewidth finallist extends Fn.id width cycles print term
           jointextlen fchar
     | Right, Word, Reset, Greater ->
