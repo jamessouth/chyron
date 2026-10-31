@@ -122,7 +122,8 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     takeappend,
     totallen )
 
-let doublewidth chl chl2 func wid cycles print term buflen func2 =
+let doublewidth mainlist extended linefunc width cycles print term buflen
+    splitfunc =
   let buffer = Bytes.create buflen in
 
   let rec loop ticks lt =
@@ -132,40 +133,40 @@ let doublewidth chl chl2 func wid cycles print term buflen func2 =
          lt); *)
     match (ticks < 1, lt) with
     | true, _ -> term ()
-    | false, [] -> loop (pred ticks) chl
-    | false, (_char, charwth, slp) :: t ->
-        (* Printf.printf "head: %s %d %d\n" char charwth slp; *)
+    | false, [] -> loop (pred ticks) mainlist
+    | false, (_hd_char, hd_width, hd_sleep) :: t ->
+        (* Printf.printf "head: %s %d %d\n" hd_char hd_width hd_sleep; *)
         let letters, _ =
-          List.fold_until (List.append lt chl2) ~init:([], 0)
-            ~f:(fun (chars, cols) (char, wth, _) ->
+          List.fold_until (List.append lt extended) ~init:([], 0)
+            ~f:(fun (acc_chars, acc_cols) (nchar, nwidth, _) ->
               let open Continue_or_stop in
               (* Printf.printf " fld: %s %d -- %s  %d\n" char wth
                 ((List.to_string ~f:Fn.id) chars)
                 cols; *)
-              if cols < wid then
+              if acc_cols < width then
                 (* let _ = Printf.printf "here " in *)
-                let tot = wth + cols in
-                if tot > wid then Stop (" " :: chars, succ cols)
-                else Continue (char :: chars, wth + cols)
+                let tot = nwidth + acc_cols in
+                if tot > width then Stop (" " :: acc_chars, succ acc_cols)
+                else Continue (nchar :: acc_chars, nwidth + acc_cols)
               (* else if cols > wid then
                 let _ = Printf.printf "    here2 " in
                 (" " :: List.tl_exn chars, cols) *)
                 else
                 let _ = Printf.printf "        here3 " in
-                Stop (chars, cols))
-            ~finish:(fun x -> x)
+                Stop (acc_chars, acc_cols))
+            ~finish:Fn.id
         in
-        let line = String.concat @@ func letters in
+        let line = String.concat @@ linefunc letters in
 
         let llen = String.length line in
         Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer
           ~dst_pos:0 ~len:llen;
         print buffer 0 llen;
-        Universal.Externs.caml_clock_nanosleep slp;
+        Universal.Externs.caml_clock_nanosleep hd_sleep;
 
         (* let nlist = if charwth = 2 then (" ", 1, slp) :: t else t in *)
-        let nlist = func2 charwth slp t in
+        let nlist = splitfunc hd_width hd_sleep t in
 
         loop ticks nlist
   in
-  loop cycles chl
+  loop cycles mainlist
