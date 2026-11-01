@@ -123,30 +123,30 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     totallen )
 
 let doublewidth mainlist extended linefunc width cycles print term buflen
-    splitfunc =
+    splitfunc mcount =
   let buffer = Bytes.create buflen in
 
-  let rec loop ticks lt =
-    (* Printf.printf "lt: %d %s -- \n" ticks
+  let rec loop ticks lt mc =
+    Printf.printf "lt: %d %s -- \n" mc
       (List.to_string
          ~f:(fun (a, b, c) -> a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
-         lt); *)
+         lt);
     match (ticks < 1, lt) with
     | true, _ -> term ()
-    | false, [] -> loop (pred ticks) mainlist
-    | false, (_hd_char, hd_width, hd_sleep) :: t ->
-        (* Printf.printf "head: %s %d %d\n" hd_char hd_width hd_sleep; *)
+    | false, [] -> loop (pred ticks) mainlist mcount
+    | false, (hd_char, hd_width, hd_sleep) :: t ->
+        Printf.printf "head: %s %d %d\n" hd_char hd_width hd_sleep;
         let letters, _ =
           List.fold_until (List.append lt extended) ~init:([], 0)
             ~f:(fun (acc_chars, acc_cols) (nchar, nwidth, _) ->
               let open Continue_or_stop in
-              (* Printf.printf " fld: %s %d -- %s  %d\n" char wth
-                ((List.to_string ~f:Fn.id) chars)
-                cols; *)
+              (* Printf.printf " fld: %s %d -- %s  %d\n" nchar nwidth
+                ((List.to_string ~f:Fn.id) acc_chars)
+                acc_cols; *)
               if acc_cols < width then
                 (* let _ = Printf.printf "here " in *)
                 let tot = nwidth + acc_cols in
-                if tot > width then Stop (" " :: acc_chars, succ acc_cols)
+                if tot > width then Stop ("M" :: acc_chars, succ acc_cols)
                 else Continue (nchar :: acc_chars, nwidth + acc_cols)
               (* else if cols > wid then
                 let _ = Printf.printf "    here2 " in
@@ -165,8 +165,8 @@ let doublewidth mainlist extended linefunc width cycles print term buflen
         Universal.Externs.caml_clock_nanosleep hd_sleep;
 
         (* let nlist = if charwth = 2 then (" ", 1, slp) :: t else t in *)
-        let nlist = splitfunc hd_width hd_sleep t in
+        let nlist = splitfunc hd_width hd_sleep mc t in
 
-        loop ticks nlist
+        loop ticks nlist (pred mc)
   in
-  loop cycles mainlist
+  loop cycles mainlist mcount
