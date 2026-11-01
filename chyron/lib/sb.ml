@@ -134,7 +134,7 @@ let doublewidth mainlist extended linefunc width cycles print term buflen
     match (ticks < 1, lt) with
     | true, _ -> term ()
     | false, [] -> loop (pred ticks) mainlist mcount
-    | false, (_hd_char, hd_width, hd_sleep) :: t ->
+    | false, (hd_char, hd_width, hd_sleep) :: t ->
         (* Printf.printf "head: %s %d %d\n" hd_char hd_width hd_sleep; *)
         let letters, _ =
           List.fold_until (List.append lt extended) ~init:([], 0)
@@ -165,8 +165,8 @@ let doublewidth mainlist extended linefunc width cycles print term buflen
         Universal.Externs.caml_clock_nanosleep hd_sleep;
 
         (* let nlist = if charwth = 2 then (" ", 1, slp) :: t else t in *)
-        let nlist = splitfunc hd_width hd_sleep mc t in
+        let nlist, dec = splitfunc hd_char hd_width hd_sleep mc t in
 
-        loop ticks nlist (pred mc)
+        loop ticks nlist (mc - dec)
   in
   loop cycles mainlist mcount
