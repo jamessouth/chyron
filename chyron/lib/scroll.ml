@@ -141,7 +141,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
 
   let splitword _ _ _ lt =
     List.drop
-      (lt |> List.drop_while ~f:(fun (char, _, _) -> String.( <> ) char " "))
+      (lt |> List.drop_while ~f:(fun (char, _, _) -> String.( <> ) char "H"))
       1
   in
 
@@ -153,7 +153,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
   in
 
   let final_extends lt =
-    let a, b, c, d, e =
+    let a, b, c, d, _ =
       List.fold lt ~init:([], 0, [], 0, 0)
         ~f:(fun
             (acc_fin, accfinwid, acc_ext, accextwid, acc_count)
@@ -173,9 +173,9 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
               accextwid + nwidth,
               tot ))
     in
-    print_endline @@ string_of_int b;
+    (* print_endline @@ string_of_int b;
     print_endline @@ string_of_int d;
-    print_endline @@ string_of_int e;
+    print_endline @@ string_of_int e; *)
     if width - d = 2 then (a, c, pred b) else (a, c, b)
   in
 
@@ -198,14 +198,20 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
             (Bytes.to_string (Stdlib.Bytes.cat joined_bytes ecp))
         in
         let finallist = prelims (List.rev charlist) 0 in
-        let extends, _ =
+        let fincount =
+          List.fold finallist ~init:0 ~f:(fun acc (_, w, _) -> acc + w)
+        in
+        let extends, excount =
           List.fold finallist ~init:([], 0)
             ~f:(fun (lt, count) (char, wth, slp) ->
               if count >= width then (lt, count)
               else ((char, wth, slp) :: lt, wth + count))
         in
+        let adjcount =
+          if width - excount = 2 then pred fincount else fincount
+        in
         Sb.doublewidth finallist (List.rev extends) List.rev width cycles print
-          term jointextlen splitchar 0
+          term jointextlen splitchar adjcount
     | Left, (Char | Word), Reset, Equal ->
         let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
         let prelim =
@@ -251,18 +257,18 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
           jointextlen splitchar mcount
     | Right, Char, Reset, Greater ->
         let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
-        print_endline @@ List.to_string ~f:Fn.id charlist;
+        (* print_endline @@ List.to_string ~f:Fn.id charlist; *)
         let prelim =
           prelims (List.rev charlist) (pred (List.length charlist))
         in
-        Printf.printf "lt:  %s -- \n"
+        (* Printf.printf "lt:  %s -- \n"
           (List.to_string
              ~f:(fun (a, b, c) ->
                a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
-             prelim);
+             prelim); *)
         let finallist, extends, mcount = final_extends prelim in
 
-        Printf.printf "%s \n"
+        (* Printf.printf "%s \n"
           (List.to_string
              ~f:(fun (a, b, c) ->
                a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
@@ -271,8 +277,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
           (List.to_string
              ~f:(fun (a, b, c) ->
                a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
-             extends);
-
+             extends); *)
         Sb.doublewidth finallist extends Fn.id width cycles print term
           jointextlen splitchar mcount
     | Right, Char, Wrap, (Greater | Equal | Less) ->
@@ -281,14 +286,20 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
             (Bytes.to_string (Stdlib.Bytes.cat ecp joined_bytes))
         in
         let finallist = prelims charlist 0 in
-        let extends, _ =
+        let fincount =
+          List.fold finallist ~init:0 ~f:(fun acc (_, w, _) -> acc + w)
+        in
+        let extends, excount =
           List.fold finallist ~init:([], 0)
             ~f:(fun (lt, count) (char, wth, slp) ->
               if count >= width then (lt, count)
               else ((char, wth, slp) :: lt, wth + count))
         in
+        let adjcount =
+          if width - excount = 2 then pred fincount else fincount
+        in
         Sb.doublewidth finallist (List.rev extends) Fn.id width cycles print
-          term jointextlen splitchar 0
+          term jointextlen splitchar adjcount
     | Right, (Char | Word), Reset, Equal ->
         let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
         let prelim =

@@ -134,8 +134,8 @@ let doublewidth mainlist extended linefunc width cycles print term buflen
     match (ticks < 1, lt) with
     | true, _ -> term ()
     | false, [] -> loop (pred ticks) mainlist mcount
-    | false, (hd_char, hd_width, hd_sleep) :: t ->
-        Printf.printf "head: %s %d %d\n" hd_char hd_width hd_sleep;
+    | false, (_hd_char, hd_width, hd_sleep) :: t ->
+        (* Printf.printf "head: %s %d %d\n" hd_char hd_width hd_sleep; *)
         let letters, _ =
           List.fold_until (List.append lt extended) ~init:([], 0)
             ~f:(fun (acc_chars, acc_cols) (nchar, nwidth, _) ->
@@ -152,7 +152,7 @@ let doublewidth mainlist extended linefunc width cycles print term buflen
                 let _ = Printf.printf "    here2 " in
                 (" " :: List.tl_exn chars, cols) *)
                 else
-                let _ = Printf.printf "        here3 " in
+                (* let _ = Printf.printf "        here3 " in *)
                 Stop (acc_chars, acc_cols))
             ~finish:Fn.id
         in
