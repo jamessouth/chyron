@@ -151,11 +151,20 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         |> List.split_while ~f:(fun (nchar, _, _) -> String.( <> ) nchar " ")
       in
       (* Printf.printf "sw: %d %s -- \n" mc
-      (List.to_string
-         ~f:(fun (a, b, c) -> a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
-         a); *)
-      ( List.drop finlt 1,
-        succ (List.fold discards ~init:0 ~f:(fun acc (_, w, _) -> acc + w)) )
+        (List.to_string
+           ~f:(fun (a, b, c) ->
+             a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+           discards);
+      Printf.printf "sw22: %d %s -- \n" mc
+        (List.to_string
+           ~f:(fun (a, b, c) ->
+             a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
+           finlt); *)
+
+      if List.for_all finlt ~f:(fun (c, _, _) -> String.( = ) c " ") then ([], 0)
+      else
+        ( List.drop finlt 1,
+          succ (List.fold discards ~init:0 ~f:(fun acc (_, w, _) -> acc + w)) )
   in
 
   let prelims lt ind =
