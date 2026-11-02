@@ -11,9 +11,10 @@ let step_arg =
 
 let sbvals text visual =
   let joined_text = String.concat ~sep:" " text in
+  let gclist = Universal.uc_charlist joined_text in
   ( Bytes.of_string joined_text,
     String.length joined_text,
-    let gclist = Universal.uc_charlist joined_text in
+    gclist,
     let open Universal.Visual in
     match visual with
     | Chars -> List.length gclist

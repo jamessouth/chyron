@@ -32,7 +32,7 @@ type t = {
 let run_scroll_chars text
     Universal.{ prefix; suffix; terminator; visual; width }
     { cycles; direction; endcap_char; endcap_len; rest; mode; step; sleep } =
-  let joined_bytes, jointextlen, visual_chars = Sb.sbvals text visual in
+  let joined_bytes, jointextlen, _, visual_chars = Sb.sbvals text visual in
   let ecl =
     Int.clamp_exn
       (Int.max endcap_len (width - visual_chars))
@@ -123,7 +123,7 @@ let run_scroll_chars text
 
 let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
     { cycles; direction; endcap_char; endcap_len; rest; mode; step; sleep } =
-  let joined_bytes, jointextlen, visual_cols = Sb.sbvals text visual in
+  let joined_bytes, jointextlen, gclist, visual_cols = Sb.sbvals text visual in
   let ecl =
     Int.clamp_exn
       (Int.max endcap_len (width - visual_cols))
@@ -207,8 +207,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
       (direction, step, mode, Ordering.of_int (compare visual_cols width))
     with
     | Left, Char, Reset, Greater ->
-        let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
-        let prelim = prelims charlist (pred (List.length charlist)) in
+        let prelim = prelims gclist (pred (List.length gclist)) in
         let finallist, extends, mcount = final_extends prelim in
         Sb.doublewidth finallist extends List.rev width cycles print term
           jointextlen splitchar mcount
@@ -232,17 +231,8 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         in
         Sb.doublewidth finallist (List.rev extends) List.rev width cycles print
           term jointextlen splitchar adjcount
-    | Left, (Char | Word), Reset, Equal ->
-        let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
-        let prelim =
-          prelims (List.rev charlist) (pred (List.length charlist))
-        in
-        let finallist, extends, mcount = final_extends prelim in
-        Sb.doublewidth finallist extends Fn.id width cycles print term
-          jointextlen splitchar mcount
     | Left, Word, Reset, Greater ->
-        let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
-        let prelim = prelims charlist (pred (List.length charlist)) in
+        let prelim = prelims gclist (pred (List.length gclist)) in
         let fincount =
           List.fold prelim ~init:0 ~f:(fun acc (_, w, _) -> acc + w)
         in
@@ -281,29 +271,10 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         let finallist, extends, mcount = final_extends prelim in
         Sb.doublewidth finallist extends Fn.id width cycles print term
           jointextlen splitchar mcount
-    | Right, Char, Reset, Greater ->
-        let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
-        (* print_endline @@ List.to_string ~f:Fn.id charlist; *)
-        let prelim =
-          prelims (List.rev charlist) (pred (List.length charlist))
-        in
-        (* Printf.printf "lt:  %s -- \n"
-          (List.to_string
-             ~f:(fun (a, b, c) ->
-               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
-             prelim); *)
+    | Right, Char, Reset, Greater | (Left | Right), (Char | Word), Reset, Equal
+      ->
+        let prelim = prelims (List.rev gclist) (pred (List.length gclist)) in
         let finallist, extends, mcount = final_extends prelim in
-
-        (* Printf.printf "%s \n"
-          (List.to_string
-             ~f:(fun (a, b, c) ->
-               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
-             finallist);
-        Printf.printf "%s \n"
-          (List.to_string
-             ~f:(fun (a, b, c) ->
-               a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
-             extends); *)
         Sb.doublewidth finallist extends Fn.id width cycles print term
           jointextlen splitchar mcount
     | Right, Char, Wrap, (Greater | Equal | Less) ->
@@ -326,17 +297,8 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         in
         Sb.doublewidth finallist (List.rev extends) Fn.id width cycles print
           term jointextlen splitchar adjcount
-    | Right, (Char | Word), Reset, Equal ->
-        let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
-        let prelim =
-          prelims (List.rev charlist) (pred (List.length charlist))
-        in
-        let finallist, extends, mcount = final_extends prelim in
-        Sb.doublewidth finallist extends Fn.id width cycles print term
-          jointextlen splitchar mcount
     | Right, Word, Reset, Greater ->
-        let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
-        let prelim = prelims charlist (pred (List.length charlist)) in
+        let prelim = prelims gclist (pred (List.length gclist)) in
         let fincount =
           List.fold prelim ~init:0 ~f:(fun acc (_, w, _) -> acc + w)
         in
