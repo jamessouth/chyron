@@ -122,15 +122,15 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     takeappend,
     totallen )
 
-let doublewidth mainlist extended linefunc width cycles print term buflen
+let doublewidth mainlist extended linefunc wid cycles print term buflen
     splitfunc mcount =
   let buffer = Bytes.create buflen in
 
   let rec loop ticks lt mc =
-    Printf.printf "lt: %d %s -- \n" mc
+    (* Printf.printf "lt: %d %s -- \n" mc
       (List.to_string
          ~f:(fun (a, b, c) -> a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
-         lt);
+         lt); *)
     match (ticks < 1, lt) with
     | true, _ -> term ()
     | false, [] -> loop (pred ticks) mainlist mcount
@@ -143,10 +143,10 @@ let doublewidth mainlist extended linefunc width cycles print term buflen
               (* Printf.printf " fld: %s %d -- %s  %d\n" nchar nwidth
                 ((List.to_string ~f:Fn.id) acc_chars)
                 acc_cols; *)
-              if acc_cols < width then
+              if acc_cols < wid then
                 (* let _ = Printf.printf "here " in *)
                 let tot = nwidth + acc_cols in
-                if tot > width then Stop ("M" :: acc_chars, succ acc_cols)
+                if tot > wid then Stop (" " :: acc_chars, succ acc_cols)
                 else Continue (nchar :: acc_chars, nwidth + acc_cols)
               (* else if cols > wid then
                 let _ = Printf.printf "    here2 " in

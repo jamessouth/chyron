@@ -137,34 +137,36 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
 
   let splitchar _ cwidth csleep mc lt =
     (* print_endline @@ string_of_int @@ List.length lt; *)
-    let finlt = if cwidth = 2 && mc > 1 then ("Q", 1, csleep) :: lt else lt in
+    let finlt = if cwidth = 2 && mc > 1 then (" ", 1, csleep) :: lt else lt in
     (finlt, 1)
   in
 
   let splitword cchar cwidth csleep mc lt =
-    if mc <= width then ([], 0)
+    let open Mode in
+    let th = match mode with Reset -> width | Wrap -> 0 in
+    if mc <= th then ([], 0)
     else
-      let a, b =
+      let discards, finlt =
         (cchar, cwidth, csleep) :: lt
-        |> List.split_while ~f:(fun (nchar, _, _) -> String.( <> ) nchar "H")
+        |> List.split_while ~f:(fun (nchar, _, _) -> String.( <> ) nchar " ")
       in
       (* Printf.printf "sw: %d %s -- \n" mc
       (List.to_string
          ~f:(fun (a, b, c) -> a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
          a); *)
-      ( List.drop b 1,
-        succ (List.fold a ~init:0 ~f:(fun acc (_, w, _) -> acc + w)) )
+      ( List.drop finlt 1,
+        succ (List.fold discards ~init:0 ~f:(fun acc (_, w, _) -> acc + w)) )
   in
 
   let prelims lt ind =
     let tot = sleep + rest in
     List.mapi lt ~f:(fun i char ->
-        let width = Universal.eaw char in
-        if i = 0 || i = ind then (char, width, tot) else (char, width, sleep))
+        let wid = Universal.eaw char in
+        if i = 0 || i = ind then (char, wid, tot) else (char, wid, sleep))
   in
 
   let final_extends lt =
-    let a, b, c, d, _ =
+    let final, finlen, exts, extlen, _ =
       List.fold lt ~init:([], 0, [], 0, 0)
         ~f:(fun
             (acc_fin, accfinwid, acc_ext, accextwid, acc_count)
@@ -184,10 +186,8 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
               accextwid + nwidth,
               tot ))
     in
-    (* print_endline @@ string_of_int b;
-    print_endline @@ string_of_int d;
-    print_endline @@ string_of_int e; *)
-    if width - d = 2 then (a, c, pred b) else (a, c, b)
+    if width - extlen = 2 then (final, exts, pred finlen)
+    else (final, exts, finlen)
   in
 
   begin
@@ -234,16 +234,22 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
     | Left, Word, Reset, Greater ->
         let charlist = Universal.uc_charlist (Bytes.to_string joined_bytes) in
         let prelim = prelims charlist (pred (List.length charlist)) in
+        let fincount =
+          List.fold prelim ~init:0 ~f:(fun acc (_, w, _) -> acc + w)
+        in
         Sb.doublewidth (List.rev prelim) [] List.rev width cycles print term
-          jointextlen splitword 0
+          jointextlen splitword fincount
     | Left, Word, Wrap, (Greater | Equal | Less) ->
         let charlist =
           Universal.uc_charlist
             (Bytes.to_string (Stdlib.Bytes.cat joined_bytes ecp))
         in
         let prelim = prelims charlist 0 in
+        let fincount =
+          List.fold prelim ~init:0 ~f:(fun acc (_, w, _) -> acc + w)
+        in
         Sb.doublewidth (List.rev prelim) (List.rev prelim) List.rev width cycles
-          print term jointextlen splitword 0
+          print term jointextlen splitword fincount
     | Left, (Char | Word), Reset, Less ->
         let charlist =
           Universal.uc_charlist
@@ -333,6 +339,9 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
             (Bytes.to_string (Stdlib.Bytes.cat ecp joined_bytes))
         in
         let prelim = prelims charlist 0 in
+        let fincount =
+          List.fold prelim ~init:0 ~f:(fun acc (_, w, _) -> acc + w)
+        in
         Sb.doublewidth prelim prelim Fn.id width cycles print term jointextlen
-          splitword 0
+          splitword fincount
   end
