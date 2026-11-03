@@ -136,7 +136,7 @@ let alpha_sf_flags =
   let%map_open.Command direction =
     flag_optional_with_default_doc "--direction" ~aliases:[ "-d" ] direction_arg
       Direction.sexp_of_t ~default:Direction.Up
-      ~doc:"string direction to flip through --charsets\n"
+      ~doc:"string direction to flip through the characters\n"
   in
   { direction }
 
@@ -166,10 +166,8 @@ let bounce =
        added\n\
        to each end. Each frame of TEXT prints --width characters, plus any \
        --prefix\n\
-       and --suffix, plus --terminator. An optional --rest can be given to \
-       extend the\n\
-       on-screen time of some frames that may otherwise only be shown very \
-       briefly.")
+       and --suffix, plus --terminator. An optional --rest can be given to pause\n\
+       frames at the ends. Columns --visual not yet implemented.")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and univ_flags
@@ -183,11 +181,11 @@ let scroll =
        --cycles times.\n\
        An endcap string made of --endcap-char with length --endcap-len will be \
        added\n\
-       between the end and beginning of TEXT. Each frame of TEXT prints --width\n\
-       characters, plus any --prefix and --suffix, plus --terminator. An \
-       optional\n\
-       --rest can be given to extend the on-screen time of some frames that may\n\
-       otherwise only be shown very briefly.")
+       between the end and beginning of TEXT. Each frame of TEXT prints \
+       --width --visual\n\
+       characters or columns, plus any --prefix and --suffix, plus \
+       --terminator. An\n\
+       optional --rest can be given to pause frames at the ends.")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and univ_flags
@@ -204,12 +202,14 @@ let split_flap_alpha =
     ~readme:(fun () ->
       "Break TEXT into lines and show each --cycles times for --sleep ms per \
        line.\n\
-       Each character in a line flips orderly through the members of \
-       --charsets at\n\
-       a rate of --flip-sleep ms per flip until the target character is reached.\n\
-       Set . Each line is --justify aligned and\n\
-       prints --width characters, plus any --prefix and --suffix, plus \
-       --terminator.")
+       Each character in a line flips orderly in --direction through the \
+       members of\n\
+       --charsets and --custom-str at a rate of --flip-sleep ms per flip until \
+       the\n\
+       target character is reached. Each line is --justify aligned and prints \
+       --width\n\
+       characters, plus any --prefix and --suffix, plus --terminator. Columns\n\
+       --visual not yet implemented.")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and univ_flags
@@ -224,12 +224,14 @@ let split_flap_rando =
     ~readme:(fun () ->
       "Break TEXT into lines and show each --cycles times for --sleep ms per \
        line.\n\
-       Each character in a line flips randomly through the members of --charsets\n\
-       between --flip-lo-bound and --flip-hi-bound times at a rate of \
-       --flip-sleep\n\
-       ms per flip. Each line is --justify aligned and prints --width \
-       characters, plus\n\
-       any --prefix and --suffix, plus --terminator.")
+       Each character in a line flips randomly through the members of \
+       --charsets and\n\
+       --custom-str between --flip-lo-bound and --flip-hi-bound times at a \
+       rate of\n\
+       --flip-sleep ms per flip. Each line is --justify aligned and prints \
+       --width\n\
+       characters, plus any --prefix and --suffix, plus --terminator. Columns\n\
+       --visual not yet implemented.")
     (let%map_open.Command text =
        anon (non_empty_sequence_as_list ("text" %: string))
      and univ_flags
