@@ -1,15 +1,15 @@
 (executable
- (libraries
-  core
-  ; core_bench
-  core_unix.command_unix
-  chyron)
- (modes native)
- (name main)
  (flags
   (:standard -g -w +a -w -3 -w -4 -w -42 -w -44 -w -49 -w -70 -warn-error +a))
  (ocamlopt_flags
   (:standard -g -w +a -w -3 -w -4 -w -42 -w -44 -w -49 -w -70 -warn-error +a))
+ (libraries
+  chyron
+  core
+  ; core_bench
+  core_unix.command_unix)
+ (modes native)
+ (name main)
+ (public_name chyron)
  (preprocess
-  (pps ppx_jane))
- (public_name chyron))
+  (pps ppx_jane)))

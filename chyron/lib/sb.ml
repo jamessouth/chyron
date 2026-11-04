@@ -47,7 +47,6 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
     in
     loop 0 [] cl
   in
-  print_endline @@ Bytes.to_string ft;
   let charlist = Universal.uc_charlist (Bytes.to_string ft) in
   let revcharlist = List.rev charlist in
   let totallen = Bytes.length ft in
@@ -93,26 +92,13 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
   in
   let brword =
    fun rev ->
-    print_string "rw \n";
     ucinds rev charlist wordsplitfn
       (fun str bts _ acc -> (String.length str - bts, bts) :: acc)
       width
   in
-  let blchar =
-   fun rev ->
-    print_string "lc \n";
-    ucinds rev revcharlist (fun _ -> 1) accmfn width
-  in
-  let blword =
-   fun rev ->
-    print_string "lw \n";
-    ucinds rev revcharlist wordsplitfn accmfn width
-  in
-  let rchar =
-   fun rev ->
-    print_string "rc \n";
-    ucinds rev revcharlist (fun _ -> 1) accmfn width
-  in
+  let blchar = fun rev -> ucinds rev revcharlist (fun _ -> 1) accmfn width in
+  let blword = fun rev -> ucinds rev revcharlist wordsplitfn accmfn width in
+  let rchar = fun rev -> ucinds rev revcharlist (fun _ -> 1) accmfn width in
   ( loopandprint,
     lenminuswidth,
     totallen asr 1,
@@ -128,46 +114,28 @@ let doublewidth mainlist extended linefunc wid cycles print term buflen
   let buffer = Bytes.create buflen in
 
   let rec loop ticks lt mc =
-    (* Printf.printf "lt: %d %s -- \n" mc
-      (List.to_string
-         ~f:(fun (a, b, c) -> a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
-         lt); *)
     match (ticks < 1, lt) with
     | true, _ -> term ()
     | false, [] -> loop (pred ticks) mainlist mcount
     | false, (hd_char, hd_width, hd_sleep) :: t ->
-        (* Printf.printf "head: %s %d %d\n" hd_char hd_width hd_sleep; *)
         let letters, _ =
           List.fold_until (List.append lt extended) ~init:([], 0)
             ~f:(fun (acc_chars, acc_cols) (nchar, nwidth, _) ->
               let open Continue_or_stop in
-              (* Printf.printf " fld: %s %d -- %s  %d\n" nchar nwidth
-                ((List.to_string ~f:Fn.id) acc_chars)
-                acc_cols; *)
               if acc_cols < wid then
-                (* let _ = Printf.printf "here " in *)
                 let tot = nwidth + acc_cols in
                 if tot > wid then Stop (" " :: acc_chars, succ acc_cols)
                 else Continue (nchar :: acc_chars, nwidth + acc_cols)
-              (* else if cols > wid then
-                let _ = Printf.printf "    here2 " in
-                (" " :: List.tl_exn chars, cols) *)
-                else
-                (* let _ = Printf.printf "        here3 " in *)
-                Stop (acc_chars, acc_cols))
+              else Stop (acc_chars, acc_cols))
             ~finish:Fn.id
         in
         let line = String.concat @@ linefunc letters in
-
         let llen = String.length line in
         Bytes.From_string.unsafe_blit ~src:line ~src_pos:0 ~dst:buffer
           ~dst_pos:0 ~len:llen;
         print buffer 0 llen;
         Universal.Externs.caml_clock_nanosleep hd_sleep;
-
-        (* let nlist = if charwth = 2 then (" ", 1, slp) :: t else t in *)
         let nlist, dec = splitfunc hd_char hd_width hd_sleep mc t in
-
         loop ticks nlist (mc - dec)
   in
   loop cycles mainlist mcount

@@ -136,7 +136,6 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
   in
 
   let splitchar _ cwidth csleep mc lt =
-    (* print_endline @@ string_of_int @@ List.length lt; *)
     let finlt = if cwidth = 2 && mc > 1 then (" ", 1, csleep) :: lt else lt in
     (finlt, 1)
   in
@@ -150,30 +149,17 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         (cchar, cwidth, csleep) :: lt
         |> List.split_while ~f:(fun (nchar, _, _) -> String.( <> ) nchar " ")
       in
-      (* Printf.printf "sw: %d %s -- \n" mc
-        (List.to_string
-           ~f:(fun (a, b, c) ->
-             a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
-           discards);
-      Printf.printf "sw22: %d %s -- \n" mc
-        (List.to_string
-           ~f:(fun (a, b, c) ->
-             a ^ "_" ^ string_of_int b ^ "_" ^ string_of_int c)
-           finlt); *)
-
       if List.for_all finlt ~f:(fun (c, _, _) -> String.( = ) c " ") then ([], 0)
       else
         ( List.drop finlt 1,
           succ (List.fold discards ~init:0 ~f:(fun acc (_, w, _) -> acc + w)) )
   in
-
   let prelims lt ind =
     let tot = sleep + rest in
     List.mapi lt ~f:(fun i char ->
         let wid = Universal.eaw char in
         if i = 0 || i = ind then (char, wid, tot) else (char, wid, sleep))
   in
-
   let final_extends lt =
     let final, finlen, exts, extlen, _ =
       List.fold lt ~init:([], 0, [], 0, 0)
@@ -198,7 +184,6 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
     if width - extlen = 2 then (final, exts, pred finlen)
     else (final, exts, finlen)
   in
-
   begin
     let open Direction in
     let open Sb.Step in

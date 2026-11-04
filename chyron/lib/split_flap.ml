@@ -341,7 +341,6 @@ let run_split_flap_rando text
   in
   let chars = extendchars (Charset.chars charsets) (List.concat finaltex) in
   let finalchars = extendchars chars (Universal.uc_charlist custom_chars) in
-  print_endline @@ List.to_string ~f:Fn.id finalchars;
   let chars_arr = Array.of_list finalchars in
   let len_chars = Array.length chars_arr in
   let buffer = Bytes.create (String.length (String.concat text)) in
@@ -397,7 +396,6 @@ let run_split_flap_alpha text
   in
   let chars = extendchars (Charset.chars charsets) (List.concat finaltex) in
   let finalchars = extendchars chars (Universal.uc_charlist custom_chars) in
-  print_endline @@ List.to_string ~f:Fn.id finalchars;
   let chars_arr = Array.of_list finalchars in
   let len_chars = Array.length chars_arr in
   let input_concat = String.concat text in
