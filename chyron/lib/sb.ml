@@ -112,21 +112,21 @@ let sbfuncs ltfunc ft Universal.{ prefix; suffix; terminator; visual; width }
 let doublewidth mainlist extended linefunc wid cycles print term buflen
     splitfunc mcount =
   let buffer = Bytes.create buflen in
-
+  let getletters (acc_chars, acc_cols) (nchar, nwidth, _) =
+    let open Continue_or_stop in
+    if acc_cols < wid then
+      let tot = nwidth + acc_cols in
+      if tot > wid then Stop (" " :: acc_chars, succ acc_cols)
+      else Continue (nchar :: acc_chars, nwidth + acc_cols)
+    else Stop (acc_chars, acc_cols)
+  in
   let rec loop ticks lt mc =
     match (ticks < 1, lt) with
     | true, _ -> term ()
     | false, [] -> loop (pred ticks) mainlist mcount
     | false, (hd_char, hd_width, hd_sleep) :: t ->
         let letters, _ =
-          List.fold_until (List.append lt extended) ~init:([], 0)
-            ~f:(fun (acc_chars, acc_cols) (nchar, nwidth, _) ->
-              let open Continue_or_stop in
-              if acc_cols < wid then
-                let tot = nwidth + acc_cols in
-                if tot > wid then Stop (" " :: acc_chars, succ acc_cols)
-                else Continue (nchar :: acc_chars, nwidth + acc_cols)
-              else Stop (acc_chars, acc_cols))
+          List.fold_until (List.append lt extended) ~init:([], 0) ~f:getletters
             ~finish:Fn.id
         in
         let line = String.concat @@ linefunc letters in
@@ -136,6 +136,6 @@ let doublewidth mainlist extended linefunc wid cycles print term buflen
         print buffer 0 llen;
         Universal.Externs.caml_clock_nanosleep hd_sleep;
         let nlist, dec = splitfunc hd_char hd_width hd_sleep mc t in
-        loop ticks nlist (mc - dec)
+        (loop [@tailcall]) ticks nlist (mc - dec)
   in
   loop cycles mainlist mcount

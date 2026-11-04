@@ -161,25 +161,24 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         if i = 0 || i = ind then (char, wid, tot) else (char, wid, sleep))
   in
   let final_extends lt =
+    let getlists (acc_fin, accfinwid, acc_ext, accextwid, acc_count)
+        (nchar, nwidth, nsleep) =
+      let tot = nwidth + acc_count in
+      if tot >= width then
+        ( (nchar, nwidth, nsleep) :: acc_fin,
+          accfinwid + nwidth,
+          acc_ext,
+          accextwid,
+          tot )
+      else
+        ( acc_fin,
+          accfinwid,
+          (nchar, nwidth, nsleep) :: acc_ext,
+          accextwid + nwidth,
+          tot )
+    in
     let final, finlen, exts, extlen, _ =
-      List.fold lt ~init:([], 0, [], 0, 0)
-        ~f:(fun
-            (acc_fin, accfinwid, acc_ext, accextwid, acc_count)
-            (nchar, nwidth, nsleep)
-          ->
-          let tot = nwidth + acc_count in
-          if tot >= width then
-            ( (nchar, nwidth, nsleep) :: acc_fin,
-              accfinwid + nwidth,
-              acc_ext,
-              accextwid,
-              tot )
-          else
-            ( acc_fin,
-              accfinwid,
-              (nchar, nwidth, nsleep) :: acc_ext,
-              accextwid + nwidth,
-              tot ))
+      List.fold lt ~init:([], 0, [], 0, 0) ~f:getlists
     in
     if width - extlen = 2 then (final, exts, pred finlen)
     else (final, exts, finlen)

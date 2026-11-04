@@ -230,7 +230,7 @@ module Charset = struct
             | PLs -> pls
             | Chars_in_TEXT -> []
           in
-          loop (lt :: acc) t
+          (loop [@tailcall]) (lt :: acc) t
     in
     loop [] charsets
 end
@@ -278,17 +278,18 @@ let breakdown wid txt =
         lt :: acc)
     |> List.rev
   in
+  let lt_of_lt acc lt =
+    let vis = List.length lt in
+    if vis > wid then
+      let l, r = List.split_n lt (List.length lt asr 1) in
+      l :: r :: acc
+    else lt :: acc
+  in
   let rec loop txt =
     match List.for_all txt ~f:(fun x -> List.length x <= wid) with
     | true -> txt
     | false ->
-        List.fold (List.rev txt) ~init:[] ~f:(fun acc x ->
-            let vis = List.length x in
-            if vis > wid then
-              let l, r = List.split_n x (List.length x asr 1) in
-              l :: r :: acc
-            else x :: acc)
-        |> (loop [@tailcall])
+        List.fold (List.rev txt) ~init:[] ~f:lt_of_lt |> (loop [@tailcall])
   in
   loop ltt
 
@@ -312,25 +313,27 @@ let buildup wid txt =
   loop [] 0 1
 
 let pad wid justify txt =
-  List.map txt ~f:(fun x ->
-      let open Justify in
-      let diff = wid - List.length x in
-      let intspace _ = " " in
-      match (justify, diff = 0) with
-      | _, true -> x
-      | Left, false -> list_concat ~sep:[] [ x; List.init diff ~f:intspace ]
-      | Right, false -> list_concat ~sep:[] [ List.init diff ~f:intspace; x ]
-      | Center, false ->
-          let r = diff / 2 in
-          list_concat ~sep:[]
-            [ List.init r ~f:intspace; x; List.init (diff - r) ~f:intspace ])
+  let intspace _ = " " in
+  let padstr lt =
+    let open Justify in
+    let diff = wid - List.length lt in
+    match (justify, diff = 0) with
+    | _, true -> lt
+    | Left, false -> list_concat ~sep:[] [ lt; List.init diff ~f:intspace ]
+    | Right, false -> list_concat ~sep:[] [ List.init diff ~f:intspace; lt ]
+    | Center, false ->
+        let r = diff / 2 in
+        list_concat ~sep:[]
+          [ List.init r ~f:intspace; lt; List.init (diff - r) ~f:intspace ]
+  in
+  List.map txt ~f:padstr
 
 let rec extendchars chars = function
   | [] -> chars
   | h :: t ->
       if List.exists chars ~f:(fun x -> String.( = ) x h) then
-        extendchars chars t
-      else extendchars (h :: chars) t
+        (extendchars [@tailcall]) chars t
+      else (extendchars [@tailcall]) (h :: chars) t
 
 let run_split_flap_rando text
     Universal.{ prefix; suffix; terminator; visual; width }
@@ -421,13 +424,15 @@ let run_split_flap_alpha text
       print buffer 0 llen;
       Universal.Externs.caml_clock_nanosleep flip_sleep;
       let ninds =
-        List.map2_exn inds letters ~f:(fun i l ->
-            if String.( = ) l (Array.unsafe_get chars_arr i) then i
-            else
-              let open Direction in
-              match direction with
-              | Up -> if i = pred len_chars then 0 else succ i
-              | Down -> if i = 0 then pred len_chars else pred i)
+        let nextinds ind tgt =
+          if String.( = ) tgt (Array.unsafe_get chars_arr ind) then ind
+          else
+            let open Direction in
+            match direction with
+            | Up -> if ind = pred len_chars then 0 else succ ind
+            | Down -> if ind = 0 then pred len_chars else pred ind
+        in
+        List.map2_exn inds letters ~f:nextinds
       in
       (run_workers [@tailcall]) ninds ~letters ~flips:(pred flips)
     end
