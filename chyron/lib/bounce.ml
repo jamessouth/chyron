@@ -10,7 +10,7 @@ type t = {
 
 let run_bounce text Universal.{ prefix; suffix; terminator; visual; width }
     { cycles; endcap_char; rest; step; sleep } =
-  let joined_bytes, jointextlen, _, visual_chars = Sb.sbvals text visual in
+  let Sb.{ joined_bytes; joined_text_len; visual_chars; _ } = Sb.sbvals text in
   let ecl = Int.max 0 (width - visual_chars) in
   let ecp = Bytes.make ecl endcap_char in
   let finaltext = Stdlib.Bytes.cat (Stdlib.Bytes.cat ecp joined_bytes) ecp in
@@ -26,39 +26,41 @@ let run_bounce text Universal.{ prefix; suffix; terminator; visual; width }
     List.map pwlist ~f:(fun (p, w) ->
         if p = 0 || p = maxpos then (p, w, tot) else (p, w, sleep))
   in
-  let ( loopandprint,
-        lenminuswidth,
-        _,
-        brword,
-        blchar,
-        blword,
-        _,
-        takeappend,
-        totallen ) =
-    Sb.sbfuncs ltfunc finaltext
-      Universal.{ prefix; suffix; terminator; visual; width }
-      cycles
+  let print, term =
+    let open Universal in
+    printandterm { prefix; suffix; terminator; visual; width }
   in
-  begin
-    let open Sb.Step in
-    match (step, Ordering.of_int (compare visual_chars width)) with
-    | Char, (Greater | Equal | Less) ->
-        let l, r =
-          true |> blchar |> List.split_while ~f:(fun (a, b) -> a + b < totallen)
-        in
-        List.drop l 1 |> List.rev
-        |> List.append (takeappend r l)
-        |> loopandprint
-    | Word, Greater -> begin
-        true |> brword
-        |> List.append @@ blword true
-        |> List.filteri ~f:(fun i (a, _) ->
-            (a > 0 || i = 0) && a <= lenminuswidth)
-        |> List.remove_consecutive_duplicates ~which_to_keep:`Last
-             ~equal:(fun (a, _) (b, _) -> a = b)
-        |> loopandprint
-      end
-    | Word, (Equal | Less) ->
-        [ (0, jointextlen + ecl); (lenminuswidth, jointextlen + ecl) ]
-        |> loopandprint
-  end
+  let loopandprint = Sb.loopandprint ltfunc print term finaltext cycles in
+
+  let charlist = Universal.uc_charlist (Bytes.to_string finaltext) in
+  let revcharlist = List.rev charlist in
+
+  let totallen = Bytes.length finaltext in
+
+  let lenminuswidth =
+    totallen - Sb.bytesofutfchars (String.concat charlist) width
+  in
+  let open Sb.Step in
+  match (step, Ordering.of_int (compare visual_chars width)) with
+  | Char, (Greater | Equal | Less) ->
+      let l, r =
+        Sb.ucinds true revcharlist (fun _ -> 1) Sb.accmfn width
+        |> List.split_while ~f:(fun (a, b) -> a + b < totallen)
+      in
+      List.drop l 1 |> List.rev
+      |> List.append (Sb.takeappend r l)
+      |> loopandprint
+  | Word, Greater ->
+      Sb.ucinds true charlist Sb.wordsplitfn
+        (fun str bts _ acc -> (String.length str - bts, bts) :: acc)
+        width
+      |> List.append
+         @@ Sb.ucinds true revcharlist Sb.wordsplitfn Sb.accmfn width
+      |> List.filteri ~f:(fun i (a, _) ->
+          (a > 0 || i = 0) && a <= lenminuswidth)
+      |> List.remove_consecutive_duplicates ~which_to_keep:`Last
+           ~equal:(fun (a, _) (b, _) -> a = b)
+      |> loopandprint
+  | Word, (Equal | Less) ->
+      [ (0, joined_text_len + ecl); (lenminuswidth, joined_text_len + ecl) ]
+      |> loopandprint

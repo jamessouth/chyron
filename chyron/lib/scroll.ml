@@ -32,7 +32,7 @@ type t = {
 let run_scroll_chars text
     Universal.{ prefix; suffix; terminator; visual; width }
     { cycles; direction; endcap_char; endcap_len; rest; mode; step; sleep } =
-  let joined_bytes, jointextlen, _, visual_chars = Sb.sbvals text visual in
+  let Sb.{ joined_bytes; joined_text_len; visual_chars; _ } = Sb.sbvals text in
   let ecl =
     Int.clamp_exn
       (Int.max endcap_len (width - visual_chars))
@@ -58,18 +58,18 @@ let run_scroll_chars text
             if i = 0 || i = pred (List.length pwlist) then (p, w, tot)
             else (p, w, sleep))
   in
-  let ( loopandprint,
-        lenminuswidth,
-        halflen,
-        brword,
-        blchar,
-        blword,
-        rchar,
-        takeappend,
-        _ ) =
-    Sb.sbfuncs ltfunc finaltext
-      Universal.{ prefix; suffix; terminator; visual; width }
-      cycles
+  let print, term =
+    let open Universal in
+    printandterm { prefix; suffix; terminator; visual; width }
+  in
+  let loopandprint = Sb.loopandprint ltfunc print term finaltext cycles in
+
+  let charlist = Universal.uc_charlist (Bytes.to_string finaltext) in
+  let revcharlist = List.rev charlist in
+  let totallen = Bytes.length finaltext in
+  let halflen = totallen asr 1 in
+  let lenminuswidth =
+    totallen - Sb.bytesofutfchars (String.concat charlist) width
   in
   begin
     let open Direction in
@@ -79,54 +79,68 @@ let run_scroll_chars text
       (direction, step, mode, Ordering.of_int (compare visual_chars width))
     with
     | Left, Char, Reset, Greater ->
-        true |> blchar
+        Sb.ucinds true revcharlist (fun _ -> 1) Sb.accmfn width
         |> List.filter ~f:(fun (a, b) -> a + b <= halflen - ecl)
         |> loopandprint
     | Left, Char, Wrap, (Greater | Equal | Less) ->
-        true |> blchar
+        Sb.ucinds true revcharlist (fun _ -> 1) Sb.accmfn width
         |> List.filter ~f:(fun (a, _) -> a < halflen)
         |> loopandprint
-    | Left, (Char | Word), Reset, Equal -> [ (0, jointextlen) ] |> loopandprint
+    | Left, (Char | Word), Reset, Equal ->
+        [ (0, joined_text_len) ] |> loopandprint
     | Left, Word, Reset, Greater -> begin
         let l, r =
-          true |> blword
+          Sb.ucinds true revcharlist Sb.wordsplitfn Sb.accmfn width
           |> List.split_while ~f:(fun (a, b) -> a + b < halflen - ecl)
         in
-        takeappend r l |> loopandprint
+        Sb.takeappend r l |> loopandprint
       end
     | Left, Word, Wrap, (Greater | Equal | Less) ->
-        List.take (blword true) (List.length text) |> loopandprint
+        List.take
+          (Sb.ucinds true revcharlist Sb.wordsplitfn Sb.accmfn width)
+          (List.length text)
+        |> loopandprint
     | (Left | Right), (Char | Word), Reset, Less ->
-        [ (0, jointextlen + ecl) ] |> loopandprint
+        [ (0, joined_text_len + ecl) ] |> loopandprint
     | Right, Char, Reset, Greater ->
-        false |> rchar
+        Sb.ucinds false revcharlist (fun _ -> 1) Sb.accmfn width
         |> List.filter ~f:(fun (a, _) ->
             a >= halflen + ecl && a < succ lenminuswidth)
         |> loopandprint
     | Right, Char, Wrap, (Greater | Equal | Less) ->
-        false |> rchar
+        Sb.ucinds false revcharlist (fun _ -> 1) Sb.accmfn width
         |> List.filter ~f:(fun (a, _) ->
             a > lenminuswidth - halflen && a < succ lenminuswidth)
         |> loopandprint
     | Right, (Char | Word), Reset, Equal ->
-        [ (ecl, jointextlen) ] |> loopandprint
+        [ (ecl, joined_text_len) ] |> loopandprint
     | Right, Word, Reset, Greater -> begin
         let l, r =
-          true |> brword
+          Sb.ucinds true charlist Sb.wordsplitfn
+            (fun str bts _ acc -> (String.length str - bts, bts) :: acc)
+            width
           |> List.split_while ~f:(fun (a, _) -> a > halflen + ecl)
         in
-        takeappend r l |> loopandprint
+        Sb.takeappend r l |> loopandprint
       end
     | Right, Word, Wrap, (Greater | Equal | Less) ->
-        List.take (brword true) (List.length text) |> loopandprint
+        List.take
+          (Sb.ucinds true charlist Sb.wordsplitfn
+             (fun str bts _ acc -> (String.length str - bts, bts) :: acc)
+             width)
+          (List.length text)
+        |> loopandprint
   end
 
 let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
     { cycles; direction; endcap_char; endcap_len; rest; mode; step; sleep } =
-  let joined_bytes, jointextlen, gclist, visual_cols = Sb.sbvals text visual in
+  let Sb.{ joined_bytes; joined_text_len; unicode_char_list; visual_columns; _ }
+      =
+    Sb.sbvals text
+  in
   let ecl =
     Int.clamp_exn
-      (Int.max endcap_len (width - visual_cols))
+      (Int.max endcap_len (width - visual_columns))
       ~min:1 ~max:(pred width)
   in
   let ecp = Bytes.make ecl endcap_char in
@@ -134,12 +148,10 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
   let print, term =
     printandterm { prefix; suffix; terminator; visual; width }
   in
-
   let splitchar _ cwidth csleep mc lt =
     let finlt = if cwidth = 2 && mc > 1 then (" ", 1, csleep) :: lt else lt in
     (finlt, 1)
   in
-
   let splitword cchar cwidth csleep mc lt =
     let open Mode in
     let th = match mode with Reset -> width | Wrap -> 0 in
@@ -183,18 +195,19 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
     if width - extlen = 2 then (final, exts, pred finlen)
     else (final, exts, finlen)
   in
+  let pred_ucl = pred (List.length unicode_char_list) in
   begin
     let open Direction in
     let open Sb.Step in
     let open Mode in
     match
-      (direction, step, mode, Ordering.of_int (compare visual_cols width))
+      (direction, step, mode, Ordering.of_int (compare visual_columns width))
     with
     | Left, Char, Reset, Greater ->
-        let prelim = prelims gclist (pred (List.length gclist)) in
+        let prelim = prelims unicode_char_list pred_ucl in
         let finallist, extends, mcount = final_extends prelim in
         Sb.doublewidth finallist extends List.rev width cycles print term
-          jointextlen splitchar mcount
+          joined_text_len splitchar mcount
     | Left, Char, Wrap, (Greater | Equal | Less) ->
         let charlist =
           Universal.uc_charlist
@@ -214,14 +227,14 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
           if width - excount = 2 then pred fincount else fincount
         in
         Sb.doublewidth finallist (List.rev extends) List.rev width cycles print
-          term jointextlen splitchar adjcount
+          term joined_text_len splitchar adjcount
     | Left, Word, Reset, Greater ->
-        let prelim = prelims gclist (pred (List.length gclist)) in
+        let prelim = prelims unicode_char_list pred_ucl in
         let fincount =
           List.fold prelim ~init:0 ~f:(fun acc (_, w, _) -> acc + w)
         in
         Sb.doublewidth (List.rev prelim) [] List.rev width cycles print term
-          jointextlen splitword fincount
+          joined_text_len splitword fincount
     | Left, Word, Wrap, (Greater | Equal | Less) ->
         let charlist =
           Universal.uc_charlist
@@ -232,7 +245,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
           List.fold prelim ~init:0 ~f:(fun acc (_, w, _) -> acc + w)
         in
         Sb.doublewidth (List.rev prelim) (List.rev prelim) List.rev width cycles
-          print term jointextlen splitword fincount
+          print term joined_text_len splitword fincount
     | Left, (Char | Word), Reset, Less ->
         let charlist =
           Universal.uc_charlist
@@ -243,7 +256,7 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         in
         let finallist, extends, mcount = final_extends prelim in
         Sb.doublewidth finallist extends Fn.id width cycles print term
-          jointextlen splitchar mcount
+          joined_text_len splitchar mcount
     | Right, (Char | Word), Reset, Less ->
         let charlist =
           Universal.uc_charlist
@@ -254,13 +267,13 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         in
         let finallist, extends, mcount = final_extends prelim in
         Sb.doublewidth finallist extends Fn.id width cycles print term
-          jointextlen splitchar mcount
+          joined_text_len splitchar mcount
     | Right, Char, Reset, Greater | (Left | Right), (Char | Word), Reset, Equal
       ->
-        let prelim = prelims (List.rev gclist) (pred (List.length gclist)) in
+        let prelim = prelims (List.rev unicode_char_list) pred_ucl in
         let finallist, extends, mcount = final_extends prelim in
         Sb.doublewidth finallist extends Fn.id width cycles print term
-          jointextlen splitchar mcount
+          joined_text_len splitchar mcount
     | Right, Char, Wrap, (Greater | Equal | Less) ->
         let charlist =
           Universal.uc_charlist
@@ -280,13 +293,13 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
           if width - excount = 2 then pred fincount else fincount
         in
         Sb.doublewidth finallist (List.rev extends) Fn.id width cycles print
-          term jointextlen splitchar adjcount
+          term joined_text_len splitchar adjcount
     | Right, Word, Reset, Greater ->
-        let prelim = prelims gclist (pred (List.length gclist)) in
+        let prelim = prelims unicode_char_list pred_ucl in
         let fincount =
           List.fold prelim ~init:0 ~f:(fun acc (_, w, _) -> acc + w)
         in
-        Sb.doublewidth prelim [] Fn.id width cycles print term jointextlen
+        Sb.doublewidth prelim [] Fn.id width cycles print term joined_text_len
           splitword fincount
     | Right, Word, Wrap, (Greater | Equal | Less) ->
         let charlist =
@@ -297,6 +310,6 @@ let run_scroll_cols text Universal.{ prefix; suffix; terminator; visual; width }
         let fincount =
           List.fold prelim ~init:0 ~f:(fun acc (_, w, _) -> acc + w)
         in
-        Sb.doublewidth prelim prelim Fn.id width cycles print term jointextlen
-          splitword fincount
+        Sb.doublewidth prelim prelim Fn.id width cycles print term
+          joined_text_len splitword fincount
   end
