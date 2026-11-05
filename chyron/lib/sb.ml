@@ -87,20 +87,6 @@ let loopandprint ltfunc print term ft cycles pwlist =
   in
   loop (List.length pwlist * cycles) 0
 
-(* let charlist ft = Universal.uc_charlist (Bytes.to_string ft) *)
-
-(* let sbfuncs ft width =
-  let brword =
-   fun rev ->
-    ucinds rev charlist wordsplitfn
-      (fun str bts _ acc -> (String.length str - bts, bts) :: acc)
-      width
-  in
-  let blchar = fun rev -> ucinds rev revcharlist (fun _ -> 1) accmfn width in
-  let blword = fun rev -> ucinds rev revcharlist wordsplitfn accmfn width in
-  let rchar = fun rev -> ucinds rev revcharlist (fun _ -> 1) accmfn width in
-  (lenminuswidth, totallen asr 1,    totallen) *)
-
 let doublewidth mainlist extended linefunc wid cycles print term buflen
     splitfunc mcount =
   let buffer = Bytes.create buflen in

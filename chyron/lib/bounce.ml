@@ -31,12 +31,9 @@ let run_bounce text Universal.{ prefix; suffix; terminator; visual; width }
     printandterm { prefix; suffix; terminator; visual; width }
   in
   let loopandprint = Sb.loopandprint ltfunc print term finaltext cycles in
-
   let charlist = Universal.uc_charlist (Bytes.to_string finaltext) in
   let revcharlist = List.rev charlist in
-
   let totallen = Bytes.length finaltext in
-
   let lenminuswidth =
     totallen - Sb.bytesofutfchars (String.concat charlist) width
   in
