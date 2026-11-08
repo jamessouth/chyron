@@ -246,7 +246,7 @@ let split_flap_group =
     [ ("alpha", split_flap_alpha); ("rando", split_flap_rando) ]
 
 let () =
-  Command_unix.run ~version:"1.0" ~build_info:"tbd"
+  Command_unix.run ~version:Version.version ~build_info:Version.build_info
     (Command.group ~summary:"bounce, scroll, or split-flap TEXT"
        [
          ("bounce", bounce); ("scroll", scroll); ("split-flap", split_flap_group);

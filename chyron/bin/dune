@@ -9,7 +9,15 @@
   ; core_bench
   core_unix.command_unix)
  (modes native)
+ (modules main version)
  (name main)
  (public_name chyron)
  (preprocess
   (pps ppx_jane)))
+
+(rule
+ (action
+  (with-stdout-to
+   version.ml
+   (echo
+    "let version = \"%{env:CHYRON_VERSION=dev}\"\nlet build_info = \"%{env:CHYRON_BUILD_INFO=local}\""))))
