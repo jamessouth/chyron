@@ -21,7 +21,8 @@ jobs:
           ocaml-compiler: 5
       - run: opam install . --deps-only --with-test
       - run: opam exec -- dune build
-      - run: chyron version
+      - run: ls -a
+      - run: ./_build/default/chyron/bin/main.exe version
       # - run: opam exec -- dune runtest
 
 
