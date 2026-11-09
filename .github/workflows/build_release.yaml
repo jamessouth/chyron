@@ -7,8 +7,11 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   build:
+    name: build OCaml
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -17,7 +20,7 @@ jobs:
         uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: 5
-      - run: opam install . --deps-only 
+      - run: opam install . --deps-only --with-test
       - run: opam exec -- dune build
       # - run: opam exec -- dune runtest
 
