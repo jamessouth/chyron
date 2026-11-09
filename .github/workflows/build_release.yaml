@@ -6,7 +6,7 @@ on:
       - 'v*'
   workflow_dispatch:
 
-# permissions: read-all
+permissions: {}
 
 jobs:
   build:
@@ -15,13 +15,25 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v7
+
       - name: Set-up OCaml
         uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: 5
-      - run: opam install . --deps-only --with-test
-      - run: opam exec -- dune build
-      - run: ls -a
+
+      - name: Install deps
+        run: opam install . --deps-only --with-test
+
+      - name: Store build timestamp
+        run: echo "BUILT_AT=$(TZ='UTC' date -Iminutes)" >> $GITHUB_ENV
+
+      - name: Build program
+        run: opam exec -- dune build
+        env: 
+          CHYRON_VERSION: ${{ github.ref_name }}
+          CHYRON_BUILD_INFO: ${{ github.sha }}_${{ github.event_name }}_${{ github.run_id }}_${{ github.run_number }}_${{ env.BUILT_AT }}
+
+
       - run: ./_build/default/chyron/bin/main.exe version
       # - run: opam exec -- dune runtest
 
