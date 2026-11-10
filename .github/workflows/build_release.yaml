@@ -9,8 +9,58 @@ on:
 permissions: {}
 
 jobs:
+  lint-fmt:
+    name: Lint format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+        
+      - name: Set-up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5
+          
+      - name: Lint format
+        uses: ocaml/setup-ocaml/lint-fmt@v3
+
+  lint-opam:
+    name: Lint opam
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+        
+      - name: Set-up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5
+
+      - name: Lint opam
+        uses: ocaml/setup-ocaml/lint-opam@v3
+        
+  analysis:
+    name: Analyze deps
+    runs-on: ubuntu-latest
+    concurrency:
+      group: opam-dependency-submission
+      cancel-in-progress: true
+    permissions:
+      contents: write    
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+        
+      - name: Set-up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5
+
+      - name: Analyze deps
+        uses: ocaml/setup-ocaml/analysis@v3
+
   build:
-    name: build OCaml
+    name: Build OCaml
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -32,6 +82,23 @@ jobs:
         env: 
           CHYRON_VERSION: ${{ github.ref_name }}
           CHYRON_BUILD_INFO: ${{ github.sha }}_${{ github.event_name }}_${{ github.run_id }}_${{ github.run_number }}_${{ env.BUILT_AT }}
+
+
+#env:
+#  SCRIPT: echo "Hello"
+
+#jobs:
+#  build:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Run variable
+#        run: ${{ env.SCRIPT }}
+
+
+#steps:
+#  - uses: actions/checkout@v6
+#  - uses: ./.github/actions/my-composite-action
+
 
 
       - run: ./_build/default/chyron/bin/main.exe version
