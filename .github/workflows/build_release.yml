@@ -13,14 +13,10 @@ jobs:
     name: Lint format
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v7
-        
-      - name: Set-up OCaml
-        uses: ocaml/setup-ocaml@v3
+      - name: Checkout repo and setup OCaml
+        uses: ./.github/actions/checkout_setupocaml
         with:
           ocaml-compiler: 5
-          
       - name: Lint format
         uses: ocaml/setup-ocaml/lint-fmt@v3
 
@@ -28,14 +24,10 @@ jobs:
     name: Lint opam
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v7
-        
-      - name: Set-up OCaml
-        uses: ocaml/setup-ocaml@v3
+      - name: Checkout repo and setup OCaml
+        uses: ./.github/actions/checkout_setupocaml
         with:
           ocaml-compiler: 5
-
       - name: Lint opam
         uses: ocaml/setup-ocaml/lint-opam@v3
         
@@ -48,57 +40,30 @@ jobs:
     permissions:
       contents: write    
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v7
-        
-      - name: Set-up OCaml
-        uses: ocaml/setup-ocaml@v3
+      - name: Checkout repo and setup OCaml
+        uses: ./.github/actions/checkout_setupocaml
         with:
           ocaml-compiler: 5
-
       - name: Analyze deps
         uses: ocaml/setup-ocaml/analysis@v3
 
   build:
     name: Build OCaml
     runs-on: ubuntu-latest
+    env:
+      BUILT_AT: TZ='UTC' date -Iminutes
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v7
-
-      - name: Set-up OCaml
-        uses: ocaml/setup-ocaml@v3
+      - name: Checkout repo and setup OCaml
+        uses: ./.github/actions/checkout_setupocaml
         with:
           ocaml-compiler: 5
-
       - name: Install deps
         run: opam install . --deps-only --with-test
-
-      - name: Store build timestamp
-        run: echo "BUILT_AT=$(TZ='UTC' date -Iminutes)" >> $GITHUB_ENV
-
       - name: Build program
         run: opam exec -- dune build
         env: 
           CHYRON_VERSION: ${{ github.ref_name }}
           CHYRON_BUILD_INFO: ${{ github.sha }}_${{ github.event_name }}_${{ github.run_id }}_${{ github.run_number }}_${{ env.BUILT_AT }}
-
-
-#env:
-#  SCRIPT: echo "Hello"
-
-#jobs:
-#  build:
-#    runs-on: ubuntu-latest
-#    steps:
-#      - name: Run variable
-#        run: ${{ env.SCRIPT }}
-
-
-#steps:
-#  - uses: actions/checkout@v6
-#  - uses: ./.github/actions/my-composite-action
-
 
 
       - run: ./_build/default/chyron/bin/main.exe version

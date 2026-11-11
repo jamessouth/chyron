@@ -1,0 +1,15 @@
+name: Checkout repo and setup OCaml
+description: Combine checkout and setup
+inputs:
+  ocaml-compiler:  
+    description: OCaml compiler version
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repo
+      uses: actions/checkout@v7
+    - name: Set-up OCaml
+      uses: ocaml/setup-ocaml@v3
+      with:
+        ocaml-compiler: ${{ inputs.ocaml-compiler }}
