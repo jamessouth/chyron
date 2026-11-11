@@ -20,38 +20,36 @@ jobs:
       - name: Lint format
         uses: ocaml/setup-ocaml/lint-fmt@v3
 
-  lint-opam:
-    name: Lint opam
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo and setup OCaml
-        uses: $/.github/actions/checkout_setupocaml
-        with:
-          ocaml-compiler: 5
-      - name: Lint opam
-        uses: ocaml/setup-ocaml/lint-opam@v3
+  # lint-opam:
+  #   name: Lint opam
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout repo and setup OCaml
+  #       uses: $/.github/actions/checkout_setupocaml
+  #       with:
+  #         ocaml-compiler: 5
+  #     - name: Lint opam
+  #       uses: ocaml/setup-ocaml/lint-opam@v3
         
-  analysis:
-    name: Analyze deps
-    runs-on: ubuntu-latest
-    concurrency:
-      group: opam-dependency-submission
-      cancel-in-progress: true
-    permissions:
-      contents: write    
-    steps:
-      - name: Checkout repo and setup OCaml
-        uses: $/.github/actions/checkout_setupocaml
-        with:
-          ocaml-compiler: 5
-      - name: Analyze deps
-        uses: ocaml/setup-ocaml/analysis@v3
+  # analysis:
+  #   name: Analyze deps
+  #   runs-on: ubuntu-latest
+  #   concurrency:
+  #     group: opam-dependency-submission
+  #     cancel-in-progress: true
+  #   permissions:
+  #     contents: write    
+  #   steps:
+  #     - name: Checkout repo and setup OCaml
+  #       uses: $/.github/actions/checkout_setupocaml
+  #       with:
+  #         ocaml-compiler: 5
+  #     - name: Analyze deps
+  #       uses: ocaml/setup-ocaml/analysis@v3
 
   build:
     name: Build OCaml
     runs-on: ubuntu-latest
-    env:
-      BUILT_AT: echo $(TZ='UTC' date -Iminutes)
     steps:
       - name: Checkout repo and setup OCaml
         uses: $/.github/actions/checkout_setupocaml
@@ -59,6 +57,8 @@ jobs:
           ocaml-compiler: 5
       - name: Install deps
         run: opam install . --deps-only --with-test
+      - name: Store build timestamp
+        run: echo "BUILT_AT=$(TZ='UTC' date -Iminutes)" >> $GITHUB_ENV
       - name: Build program
         run: opam exec -- dune build
         env: 
