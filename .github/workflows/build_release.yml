@@ -51,7 +51,7 @@ jobs:
     name: Build OCaml
     runs-on: ubuntu-latest
     env:
-      BUILT_AT: TZ='UTC' date -Iminutes
+      BUILT_AT: $(TZ='UTC' date -Iminutes)
     steps:
       - name: Checkout repo and setup OCaml
         uses: $/.github/actions/checkout_setupocaml

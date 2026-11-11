@@ -1,4 +1,4 @@
-(lang dune 3.22)
+(lang dune 3.20)
 
 (name chyron)
 
@@ -17,8 +17,8 @@
 
 (package
  (name chyron)
- (synopsis "a text scroller/split-flap/chyron")
- (description "a text scroller/split-flap/chyron")
+ (synopsis "A text scroller/split-flap/chyron")
+ (description "A text scroller/split-flap/chyron")
  (depends
   ocaml
   dune
