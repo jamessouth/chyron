@@ -13,9 +13,8 @@ jobs:
     name: Lint format
     runs-on: ubuntu-latest
     steps:
-      - run: pwd
       - name: Checkout repo and setup OCaml
-        uses: ./.github/actions/checkout_setupocaml
+        uses: $/.github/actions/checkout_setupocaml
         with:
           ocaml-compiler: 5
       - name: Lint format
@@ -26,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo and setup OCaml
-        uses: ./.github/actions/checkout_setupocaml
+        uses: $/.github/actions/checkout_setupocaml
         with:
           ocaml-compiler: 5
       - name: Lint opam
@@ -42,7 +41,7 @@ jobs:
       contents: write    
     steps:
       - name: Checkout repo and setup OCaml
-        uses: ./.github/actions/checkout_setupocaml
+        uses: $/.github/actions/checkout_setupocaml
         with:
           ocaml-compiler: 5
       - name: Analyze deps
@@ -55,7 +54,7 @@ jobs:
       BUILT_AT: TZ='UTC' date -Iminutes
     steps:
       - name: Checkout repo and setup OCaml
-        uses: ./.github/actions/checkout_setupocaml
+        uses: $/.github/actions/checkout_setupocaml
         with:
           ocaml-compiler: 5
       - name: Install deps
