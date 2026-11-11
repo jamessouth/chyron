@@ -30,12 +30,12 @@ val takeappend : 'a list -> 'a list -> 'a list
 
 val loopandprint :
   ('a list -> (int * int * int) list) ->
-  ('b -> int -> int -> 'c) ->
-  (unit -> 'd) ->
+  ('b -> int -> int -> unit) ->
+  (unit -> 'c) ->
   'b ->
   int ->
   'a list ->
-  'd
+  'c
 
 val doublewidth :
   (string * int * int) list ->
@@ -43,8 +43,8 @@ val doublewidth :
   (string list -> string list) ->
   int ->
   int ->
-  (bytes -> int -> int -> 'a) ->
-  (unit -> 'b) ->
+  (bytes -> int -> int -> unit) ->
+  (unit -> 'a) ->
   int ->
   (string ->
   int ->
@@ -53,4 +53,4 @@ val doublewidth :
   (string * int * int) list ->
   (string * int * int) list * int) ->
   int ->
-  'b
+  'a

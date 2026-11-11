@@ -25,10 +25,10 @@
   core
   ppx_jane
   core_unix
-  ppx_inline_test
+  (ppx_inline_test :with-test)
   ppx_deriving
   ppx_assert
-  qcheck-core
+  (qcheck-core :with-test)
   uuseg)
  (tags ("scroll split-flap chyron")))
 
