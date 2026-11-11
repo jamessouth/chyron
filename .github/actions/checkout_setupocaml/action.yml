@@ -5,7 +5,7 @@ inputs:
     description: OCaml compiler version
     required: true
 runs:
-  using: "composite"
+  using: composite
   steps:
     - name: Checkout repo
       uses: actions/checkout@v7
