@@ -15,6 +15,11 @@
  (preprocess
   (pps ppx_jane)))
 
+(env
+ (release
+  (ocamlopt_flags
+   (:standard -O3 -inline 20 -unbox-closures))))
+
 (rule
  (action
   (with-stdout-to
