@@ -66,15 +66,15 @@ jobs:
         run: |
           opam exec -- dune build --release
           mkdir -p dist
-          mv $/_build/default/chyron/bin/main.exe $/dist/chyron.exe
-          cp $/LICENSE $/dist/
-          ls -al $/dist/
+          mv ./_build/default/chyron/bin/main.exe dist/chyron.exe
+          cp ./LICENSE dist/
+          ls -al dist/
       - name: Calculate binary sum
         id: bin
-        run: echo "sum=$(b2sum $/dist/chyron.exe | awk '{printf "%s", $1}')" >> "$GITHUB_OUTPUT"
+        run: echo "sum=$(b2sum dist/chyron.exe | awk '{printf "%s", $1}')" >> "$GITHUB_OUTPUT"
       - name: Calculate license sum
         id: lic
-        run: echo "sum=$(b2sum $/dist/LICENSE | awk '{printf "%s", $1}')" >> "$GITHUB_OUTPUT"
+        run: echo "sum=$(b2sum dist/LICENSE | awk '{printf "%s", $1}')" >> "$GITHUB_OUTPUT"
   job2:
     runs-on: ubuntu-latest
     needs: build
@@ -84,10 +84,5 @@ jobs:
           LICENSE_SUM: ${{needs.build.outputs.license_sum}}
         run: echo "$BINARY_SUM $LICENSE_SUM"
 
-
-
-      - run: ls -al $/dist/
-
-
-
+      - run: ls -al dist/
 
