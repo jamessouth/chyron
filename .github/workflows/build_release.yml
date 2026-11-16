@@ -48,9 +48,11 @@ jobs:
   build:
     name: Build OCaml
     runs-on: ubuntu-latest
-    outputs:
-      binary_sum: ${{ steps.bin.outputs.sum }}
-      license_sum: ${{ steps.lic.outputs.sum }}
+    permissions:
+      contents: write
+    # outputs:
+    #   binary_sum: ${{ steps.bin.outputs.sum }}
+    #   license_sum: ${{ steps.lic.outputs.sum }}
     steps:
       - name: Checkout repo and setup OCaml
         uses: $/.github/actions/checkout_setupocaml
@@ -69,31 +71,33 @@ jobs:
           mkdir -p dist
           mv ./_build/default/chyron/bin/main.exe dist/chyron.exe
           cp ./LICENSE dist/
-          ls -al dist/
       - name: Calculate binary sum
-        id: bin
-        run: echo "sum=$(b2sum dist/chyron.exe | awk '{printf "%s", $1}')" >> "$GITHUB_OUTPUT"
+        run: echo "BINARY_SUM=$(b2sum dist/chyron.exe | awk '{printf "%s", $1}')" >> "$GITHUB_ENV"
       - name: Calculate license sum
-        id: lic
-        run: echo "sum=$(b2sum dist/LICENSE | awk '{printf "%s", $1}')" >> "$GITHUB_OUTPUT"
+        run: echo "LICENSE_SUM=$(b2sum dist/LICENSE | awk '{printf "%s", $1}')" >> "$GITHUB_ENV"
 
 
 
-      # - name: Create release
-      #   uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd
-      #   with:
-          
+      - name: Create release
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd
+        with:
+          artifacts: "dist/chyron.exe,dist/LICENSE"
+          body: |
+            chyron.exe digest: ${{ env.BINARY_SUM }}
+            LICENSE digest: ${{ env.LICENSE_SUM }}
+          immutableCreate: true
 
 
 
-  job2:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - env:
-          BINARY_SUM: ${{needs.build.outputs.binary_sum}}
-          LICENSE_SUM: ${{needs.build.outputs.license_sum}}
-        run: echo "$BINARY_SUM $LICENSE_SUM"
+
+  # job2:
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   steps:
+  #     - env:
+  #         BINARY_SUM: ${{needs.build.outputs.binary_sum}}
+  #         LICENSE_SUM: ${{needs.build.outputs.license_sum}}
+  #       run: echo "$BINARY_SUM $LICENSE_SUM"
 
 
 
