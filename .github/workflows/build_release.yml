@@ -70,18 +70,18 @@ jobs:
           opam exec -- dune build --release
           mkdir -p dist
           mv ./_build/default/chyron/bin/main.exe dist/chyron.exe
-          cp ./LICENSE dist/
+          cp ./LICENSE ./body.md dist/
       - name: Calculate binary sum
         run: echo "BINARY_SUM=$(b2sum dist/chyron.exe | awk '{printf "%s", $1}')" >> "$GITHUB_ENV"
       - name: Calculate license sum
         run: echo "LICENSE_SUM=$(b2sum dist/LICENSE | awk '{printf "%s", $1}')" >> "$GITHUB_ENV"
+      - name: Update dist/body.md with b2sums
+        run: sed -i "s/xxxx/$BINARY_SUM/; s/yyyy/$LICENSE_SUM/" dist/body.md
       - name: Create release
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd
         with:
           artifacts: "dist/chyron.exe,dist/LICENSE"
-          body: |
-            chyron.exe b2sum: ${{ env.BINARY_SUM }}
-            LICENSE b2sum: ${{ env.LICENSE_SUM }}
+          bodyFile: "dist/body.md"
           immutableCreate: true
 
 
