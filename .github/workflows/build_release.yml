@@ -75,16 +75,13 @@ jobs:
         run: echo "BINARY_SUM=$(b2sum dist/chyron.exe | awk '{printf "%s", $1}')" >> "$GITHUB_ENV"
       - name: Calculate license sum
         run: echo "LICENSE_SUM=$(b2sum dist/LICENSE | awk '{printf "%s", $1}')" >> "$GITHUB_ENV"
-
-
-
       - name: Create release
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd
         with:
           artifacts: "dist/chyron.exe,dist/LICENSE"
           body: |
-            chyron.exe digest: ${{ env.BINARY_SUM }}
-            LICENSE digest: ${{ env.LICENSE_SUM }}
+            chyron.exe b2sum: ${{ env.BINARY_SUM }}
+            LICENSE b2sum: ${{ env.LICENSE_SUM }}
           immutableCreate: true
 
 
