@@ -69,18 +69,24 @@ jobs:
         run: |
           opam exec -- dune build --release
           mkdir -p dist
-          mv ./_build/default/chyron/bin/main.exe dist/chyron.exe
-          cp ./LICENSE ./body.md dist/
+          mv ./_build/default/chyron/bin/main.exe dist/chyron
+          cp ./LICENSE ./body.md ./PKGBUILD dist/
+          echo "PKGVER=${CHYRON_VERSION#v}" >> "$GITHUB_ENV"
       - name: Calculate binary sum
-        run: echo "BINARY_SUM=$(b2sum dist/chyron.exe | awk '{printf "%s", $1}')" >> "$GITHUB_ENV"
+        run: echo "BINARY_SUM=$(b2sum dist/chyron | awk '{printf "%s", $1}')" >> "$GITHUB_ENV"
       - name: Calculate license sum
         run: echo "LICENSE_SUM=$(b2sum dist/LICENSE | awk '{printf "%s", $1}')" >> "$GITHUB_ENV"
+      - name: Update dist/PKGBUILD with version
+        run: sed -i "/^pkgver/c\pkgver=$PKGVER" dist/PKGBUILD 
       - name: Update dist/body.md with b2sums
-        run: sed -i "s/xxxx/$BINARY_SUM/; s/yyyy/$LICENSE_SUM/" dist/body.md
+        run: |
+          sed -i "s/xxxx/$BINARY_SUM/; s/yyyy/$LICENSE_SUM/" dist/body.md
+          cat dist/PKGBUILD
+          chyron version
       - name: Create release
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd
         with:
-          artifacts: "dist/chyron.exe,dist/LICENSE"
+          artifacts: "dist/chyron,dist/LICENSE"
           bodyFile: "dist/body.md"
           immutableCreate: true
 

@@ -1,4 +1,4 @@
-<h2 align="center">chyron.exe b2sum:</h2>
+<h2 align="center">chyron b2sum:</h2>
 
 ```bash
 xxxx
