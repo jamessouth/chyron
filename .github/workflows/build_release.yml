@@ -82,7 +82,7 @@ jobs:
         run: |
           sed -i "s/xxxx/$BINARY_SUM/; s/yyyy/$LICENSE_SUM/" dist/body.md
           cat dist/PKGBUILD
-          chyron version
+          dist/chyron version
       - name: Create release
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd
         with:
