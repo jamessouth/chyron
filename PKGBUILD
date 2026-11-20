@@ -7,6 +7,7 @@ pkgdesc='A CLI text scroller/split-flap for Linux, written in OCaml'
 arch=('x86_64')
 url='https://github.com/jamessouth/chyron'
 license=('MIT')
+options=('!debug')
 depends=('glibc')
 provides=('chyron')
 conflicts=('chyron')
@@ -19,9 +20,4 @@ package() {
   install -Dm755 "${srcdir}/${pkgname}-${pkgver}" "${pkgdir}/usr/bin/chyron"
   install -Dm644 "${srcdir}/${pkgname}-${pkgver}-LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
-
-
-#makepkg -si                  # Builds and installs the package locally to test it
-#namcap PKGBUILD *.pkg.tar.*  # Checks for any Arch packaging warnings or missing depends
-#makepkg --printsrcinfo > .SRCINFO  # Generates the .SRCINFO file required by the AUR
 
