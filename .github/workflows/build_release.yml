@@ -70,7 +70,7 @@ jobs:
           opam exec -- dune build --release
           mkdir -p dist
           mv ./_build/default/chyron/bin/main.exe dist/chyron
-          cp ./LICENSE ./body.md ./PKGBUILD dist/
+          cp ./LICENSE ./body.md ./PKGBUILD ./chy.png dist/
           echo "PKGVER=${CHYRON_VERSION#v}" >> "$GITHUB_ENV"
       - name: Calculate binary sum
         run: echo "BINARY_SUM=$(b2sum dist/chyron | awk '{printf "%s", $1}')" >> "$GITHUB_ENV"
