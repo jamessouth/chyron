@@ -1,7 +1,7 @@
 <div align="center">
 	<picture>
- 	 <source media="(prefers-color-scheme: dark)" srcset="litechy.png">
- 	 <img alt="chyron b2sum:" src="darkchy.png">
+ 	 <source media="(prefers-color-scheme: dark)" srcset="imgs/litechy.png">
+ 	 <img alt="chyron b2sum:" src="imgs/darkchy.png">
 	</picture>
 </div>
 
@@ -13,8 +13,8 @@ xxxx
 
 <div align="center">
 	<picture>
- 	 <source media="(prefers-color-scheme: dark)" srcset="litelic.png">
- 	 <img alt="LICENSE b2sum:" src="darklic.png">
+ 	 <source media="(prefers-color-scheme: dark)" srcset="imgs/litelic.png">
+ 	 <img alt="LICENSE b2sum:" src="imgs/darklic.png">
 	</picture>
 </div>
 
