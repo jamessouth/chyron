@@ -1,0 +1,9 @@
+
+magick -size 300x30 -background none -fill "#1f2328" -font "$1" -pointsize 24 -gravity center label:"chyron b2sum:" imgs/litemodechy.png
+
+magick -size 300x30 -background none -fill "#1f2328" -font "$1" -pointsize 24 -gravity center label:"LICENSE b2sum:" imgs/litemodelic.png
+
+magick -size 300x30 -background none -fill "#d1d7e0" -font "$1" -pointsize 24 -gravity center label:"chyron b2sum:" imgs/darkmodechy.png
+
+magick -size 300x30 -background none -fill "#d1d7e0" -font "$1" -pointsize 24 -gravity center label:"LICENSE b2sum:" imgs/darkmodelic.png
+
